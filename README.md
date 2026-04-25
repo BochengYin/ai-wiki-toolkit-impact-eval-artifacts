@@ -23,7 +23,7 @@ comparison.
 ```text
 benchmark_materials/
   evals/impact/
-    public_writeup_draft.md
+    ai_wiki_impact_eval_pilot.md
     README.md
     report.md
     TODO.md
@@ -66,7 +66,7 @@ published in:
 
 ## Reading Order
 
-1. `benchmark_materials/evals/impact/public_writeup_draft.md`
+1. `benchmark_materials/evals/impact/ai_wiki_impact_eval_pilot.md`
 2. `benchmark_materials/evals/impact/report.md`
 3. `benchmark_materials/evals/impact/notes/index.md`
 4. The specific family note under `benchmark_materials/evals/impact/notes/`

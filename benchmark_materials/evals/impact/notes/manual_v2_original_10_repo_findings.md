@@ -20,17 +20,17 @@ Model condition intended by the operator:
 
 Workspace root for both families:
 
-- `<eval-root>/<family>/workspaces/20260425-005106`
+- `/private/tmp/aiwiki_first_round/<family>/workspaces/20260425-005106`
 
 Run dirs:
 
-- `<eval-root>/ownership_boundary/runs/ui-original-five-slots-20260425-0139`
-- `<eval-root>/release_distribution_integrity/runs/ui-original-five-slots-20260425-0218`
+- `/private/tmp/aiwiki_first_round/ownership_boundary/runs/ui-original-five-slots-20260425-0139`
+- `/private/tmp/aiwiki_first_round/release_distribution_integrity/runs/ui-original-five-slots-20260425-0218`
 
 Session exports:
 
-- `<eval-root>/ownership_boundary/workspaces/20260425-005106/codex_sessions_ui_original_ownership/manifest.json`
-- `<eval-root>/release_distribution_integrity/workspaces/20260425-005106/codex_sessions_ui_original_release/manifest.json`
+- `/private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260425-005106/codex_sessions_ui_original_ownership/manifest.json`
+- `/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260425-005106/codex_sessions_ui_original_release/manifest.json`
 
 ## Slot Map
 

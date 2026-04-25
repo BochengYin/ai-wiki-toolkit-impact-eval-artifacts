@@ -283,11 +283,11 @@ Any of the following is enough for failure:
 ### Manual v2 original transition run
 
 - workspace root:
-  - `<eval-root>/ownership_boundary/workspaces/20260425-005106`
+  - `/private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260425-005106`
 - run dir:
-  - `<eval-root>/ownership_boundary/runs/ui-original-five-slots-20260425-0139`
+  - `/private/tmp/aiwiki_first_round/ownership_boundary/runs/ui-original-five-slots-20260425-0139`
 - exported sessions:
-  - `<eval-root>/ownership_boundary/workspaces/20260425-005106/codex_sessions_ui_original_ownership/manifest.json`
+  - `/private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260425-005106/codex_sessions_ui_original_ownership/manifest.json`
 - findings note:
   - `evals/impact/notes/manual_v2_original_10_repo_findings.md`
 
@@ -297,20 +297,20 @@ Use it as qualitative evidence, not a clean formal causal run.
 ### Short run
 
 - workspace root:
-  - `<eval-root>/ownership_boundary/workspaces/20260423-115153`
+  - `/private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260423-115153`
 - run dir:
-  - `<eval-root>/ownership_boundary/runs/20260423-115153`
+  - `/private/tmp/aiwiki_first_round/ownership_boundary/runs/20260423-115153`
 - report:
-  - `<eval-root>/ownership_boundary/runs/20260423-115153/report.md`
+  - `/private/tmp/aiwiki_first_round/ownership_boundary/runs/20260423-115153/report.md`
 
 ### Medium run
 
 - workspace root:
-  - `<eval-root>/ownership_boundary/workspaces/20260423-170541`
+  - `/private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260423-170541`
 - run dir:
-  - `<eval-root>/ownership_boundary/runs/20260423-170541`
+  - `/private/tmp/aiwiki_first_round/ownership_boundary/runs/20260423-170541`
 - report:
-  - `<eval-root>/ownership_boundary/runs/20260423-170541/report.md`
+  - `/private/tmp/aiwiki_first_round/ownership_boundary/runs/20260423-170541/report.md`
 
 ## What The Diffs Actually Contained
 

@@ -22,10 +22,10 @@ Prompt/model condition:
 
 Run artifacts:
 
-- workspace root: `<eval-root>/ownership_boundary/workspaces/20260425-115832`
-- run dir: `<eval-root>/ownership_boundary/runs/cli-original-ownership-20260425-1158`
-- session export: `<eval-root>/ownership_boundary/workspaces/20260425-115832/codex_sessions`
-- generated report: `<eval-root>/ownership_boundary/runs/cli-original-ownership-20260425-1158/report.md`
+- workspace root: `/private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260425-115832`
+- run dir: `/private/tmp/aiwiki_first_round/ownership_boundary/runs/cli-original-ownership-20260425-1158`
+- session export: `/private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260425-115832/codex_sessions`
+- generated report: `/private/tmp/aiwiki_first_round/ownership_boundary/runs/cli-original-ownership-20260425-1158/report.md`
 
 The run used `evals/impact/scripts/run_cli_slots.py`, which wrapped the full five-slot sequence in
 `/usr/bin/caffeinate -dimsu`. `sleep_guard.json` shows the guard was enabled from

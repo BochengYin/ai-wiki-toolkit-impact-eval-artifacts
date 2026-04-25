@@ -20,10 +20,10 @@ Prompt/model condition:
 
 Run artifacts:
 
-- workspace root: `<eval-root>/release_runtime_compatibility/workspaces/20260425-160315`
-- run dir: `<eval-root>/release_runtime_compatibility/runs/cli-original-runtime-20260425-1618`
-- session export: `<eval-root>/release_runtime_compatibility/workspaces/20260425-160315/codex_sessions`
-- generated report: `<eval-root>/release_runtime_compatibility/runs/cli-original-runtime-20260425-1618/report.md`
+- workspace root: `/private/tmp/aiwiki_first_round/release_runtime_compatibility/workspaces/20260425-160315`
+- run dir: `/private/tmp/aiwiki_first_round/release_runtime_compatibility/runs/cli-original-runtime-20260425-1618`
+- session export: `/private/tmp/aiwiki_first_round/release_runtime_compatibility/workspaces/20260425-160315/codex_sessions`
+- generated report: `/private/tmp/aiwiki_first_round/release_runtime_compatibility/runs/cli-original-runtime-20260425-1618/report.md`
 
 ## Validation
 

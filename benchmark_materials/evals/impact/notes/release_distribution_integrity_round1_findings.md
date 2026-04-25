@@ -9,9 +9,9 @@ These findings are the repo-recorded result summary for this benchmark family.
 
 ### Short
 
-- report: `<eval-root>/release_distribution_integrity/runs/short-five-way/report.md`
+- report: `/private/tmp/aiwiki_first_round/release_distribution_integrity/runs/short-five-way/report.md`
 - session manifest:
-  - `<eval-root>/release_distribution_integrity/workspaces/20260424-182219/codex_sessions/manifest.json`
+  - `/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260424-182219/codex_sessions/manifest.json`
 
 ## Execution Conditions
 

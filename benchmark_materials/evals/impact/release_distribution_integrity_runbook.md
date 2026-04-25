@@ -297,11 +297,11 @@ Any of the following is enough for failure:
 ### Manual v2 original transition run
 
 - workspace root:
-  - `<eval-root>/release_distribution_integrity/workspaces/20260425-005106`
+  - `/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260425-005106`
 - run dir:
-  - `<eval-root>/release_distribution_integrity/runs/ui-original-five-slots-20260425-0218`
+  - `/private/tmp/aiwiki_first_round/release_distribution_integrity/runs/ui-original-five-slots-20260425-0218`
 - exported sessions:
-  - `<eval-root>/release_distribution_integrity/workspaces/20260425-005106/codex_sessions_ui_original_release/manifest.json`
+  - `/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260425-005106/codex_sessions_ui_original_release/manifest.json`
 - findings note:
   - `evals/impact/notes/manual_v2_original_10_repo_findings.md`
 
@@ -312,10 +312,10 @@ qualitative evidence, not a clean formal causal run.
 ### Short run
 
 - workspace root:
-  - `<eval-root>/release_distribution_integrity/workspaces/20260424-182219`
+  - `/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260424-182219`
 - run dir:
-  - `<eval-root>/release_distribution_integrity/runs/short-five-way`
+  - `/private/tmp/aiwiki_first_round/release_distribution_integrity/runs/short-five-way`
 - report:
-  - `<eval-root>/release_distribution_integrity/runs/short-five-way/report.md`
+  - `/private/tmp/aiwiki_first_round/release_distribution_integrity/runs/short-five-way/report.md`
 - exported sessions:
-  - `<eval-root>/release_distribution_integrity/workspaces/20260424-182219/codex_sessions/manifest.json`
+  - `/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260424-182219/codex_sessions/manifest.json`
