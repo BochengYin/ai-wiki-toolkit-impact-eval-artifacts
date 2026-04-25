@@ -23,13 +23,14 @@ comparison.
 ```text
 benchmark_materials/
   evals/impact/
-    ai_wiki_impact_eval_pilot.md
     README.md
-    report.md
     TODO.md
     families/
     notes/
+    public/
     prompts/
+    reports/
+    runbooks/
     scripts/
 
 artifacts/
@@ -67,7 +68,7 @@ published in:
 ## Reading Order
 
 1. `benchmark_materials/evals/impact/public/ai_wiki_impact_eval_pilot.md`
-2. `benchmark_materials/evals/impact/report.md`
+2. `benchmark_materials/evals/impact/reports/current.md`
 3. `benchmark_materials/evals/impact/notes/index.md`
 4. The specific family note under `benchmark_materials/evals/impact/notes/`
 5. The matching artifact directory under `artifacts/2026-04-25-manual-v2-cli-original/`
