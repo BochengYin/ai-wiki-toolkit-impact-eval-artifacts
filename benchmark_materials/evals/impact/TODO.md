@@ -47,6 +47,10 @@ Current public-writeup draft:
 
 - `evals/impact/public_writeup_draft.md`
 
+Published artifact repository:
+
+- https://github.com/BochengYin/ai-wiki-toolkit-impact-eval-artifacts
+
 The public note itself should stay focused on the experiment, results, limitations, and artifact
 links. Keep publication logistics in this TODO or release-prep notes rather than in the public note.
 
@@ -82,6 +86,8 @@ Initial 2026-04-25 scan notes:
   inventory; treat those as redaction candidates before publishing raw logs
 - email-like matches were public GitHub noreply or test/example fixture addresses; still re-check
   before publishing a final bundle
+- published `ai-wiki-toolkit-impact-eval-artifacts` with visible artifacts only; raw
+  `session_without_reasoning.jsonl` files are omitted and represented by SHA-256 hashes
 
 ## Status Legend
 
@@ -143,7 +149,7 @@ Run and documented.
 Artifacts:
 
 - `evals/impact/notes/manual_v2_cli_original_windows_arm_20260425_findings.md`
-- `<eval-root>/windows_arm_smoke_cli_output/runs/cli-original-windows-arm-20260425-1618/report.md`
+- `/private/tmp/aiwiki_first_round/windows_arm_smoke_cli_output/runs/cli-original-windows-arm-20260425-1618/report.md`
 
 Current defended takeaway:
 
@@ -158,7 +164,7 @@ Run and documented.
 Artifacts:
 
 - `evals/impact/notes/manual_v2_cli_original_release_runtime_20260425_findings.md`
-- `<eval-root>/release_runtime_compatibility/runs/cli-original-runtime-20260425-1618/report.md`
+- `/private/tmp/aiwiki_first_round/release_runtime_compatibility/runs/cli-original-runtime-20260425-1618/report.md`
 
 Current defended takeaway:
 
@@ -182,7 +188,7 @@ Run and documented.
 Artifacts:
 
 - `evals/impact/notes/manual_v2_cli_original_scaffold_prompt_workflow_20260425_findings.md`
-- `<eval-root>/scaffold_prompt_workflow_compliance/runs/cli-original-scaffold-20260425-1618/report.md`
+- `/private/tmp/aiwiki_first_round/scaffold_prompt_workflow_compliance/runs/cli-original-scaffold-20260425-1618/report.md`
 
 Current defended takeaway:
 

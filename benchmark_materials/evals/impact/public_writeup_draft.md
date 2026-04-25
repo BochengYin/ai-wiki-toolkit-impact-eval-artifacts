@@ -122,6 +122,10 @@ claim.
 
 The benchmark materials are meant to be auditable, not just summarized.
 
+Public artifact repository:
+
+- https://github.com/BochengYin/ai-wiki-toolkit-impact-eval-artifacts
+
 The repository contains the stable materials:
 
 - prompts
@@ -144,6 +148,9 @@ The per-run artifacts should accompany this write-up as a redacted artifact bund
 Full raw session exports are useful for transparency, but only if they pass a privacy and secrets
 review. If raw logs cannot be published safely, the public bundle should include the visible logs,
 manifests, and hashes for the withheld raw logs.
+
+For this publication snapshot, the artifact repository includes visible session artifacts and
+SHA-256 hashes for the withheld raw session exports.
 
 ## Family Table
 
