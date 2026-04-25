@@ -84,7 +84,7 @@ def parse_args() -> argparse.Namespace:
         "--output-root",
         type=Path,
         default=None,
-        help="Root directory for result runs. Defaults to /private/tmp/aiwiki_first_round/<experiment>/runs/",
+        help="Root directory for result runs. Defaults to <eval-root>/<experiment>/runs/",
     )
     parser.add_argument(
         "--variants",

@@ -154,7 +154,7 @@ uv run python evals/impact/scripts/prepare_variants.py --experiment ownership_bo
 By default this now creates workflow-primary v2 neutral slots outside the main repository under:
 
 ```text
-/private/tmp/aiwiki_first_round/<experiment>/workspaces/<timestamp>/
+<eval-root>/<experiment>/workspaces/<timestamp>/
 ```
 
 Important: `prepare_variants.py` now copies a committed git snapshot by default, not the current
@@ -252,7 +252,7 @@ Preferred formal run command:
 
 ```bash
 uv run python evals/impact/scripts/run_cli_slots.py \
-  --run-dir /private/tmp/aiwiki_first_round/ownership_boundary/runs/run_20260425 \
+  --run-dir <eval-root>/ownership_boundary/runs/run_20260425 \
   --prompt-level original
 ```
 
@@ -264,13 +264,13 @@ per-slot UI or operator-presence dependencies while keeping session persistence 
 Example manual slot command:
 
 ```bash
-mkdir -p /private/tmp/aiwiki_first_round/ownership_boundary/runs/run_20260425/s01/original/first_pass
+mkdir -p <eval-root>/ownership_boundary/runs/run_20260425/s01/original/first_pass
 codex exec \
   --model "gpt-5.5" \
   --config 'model_reasoning_effort="xhigh"' \
   --full-auto \
-  --cd /private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260425-100000/slots/s01 \
-  --output-last-message /private/tmp/aiwiki_first_round/ownership_boundary/runs/run_20260425/s01/original/first_pass/final_message.md \
+  --cd <eval-root>/ownership_boundary/workspaces/20260425-100000/slots/s01 \
+  --output-last-message <eval-root>/ownership_boundary/runs/run_20260425/s01/original/first_pass/final_message.md \
   - < evals/impact/prompts/ownership_boundary/original.md
 ```
 
@@ -294,13 +294,13 @@ Initialize an external run directory:
 ```bash
 uv run python evals/impact/scripts/init_run.py \
   --experiment ownership_boundary \
-  --workspace-root /private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260423-170541
+  --workspace-root <eval-root>/ownership_boundary/workspaces/20260423-170541
 ```
 
 This creates a result tree under:
 
 ```text
-/private/tmp/aiwiki_first_round/<experiment>/runs/<run-label>/
+<eval-root>/<experiment>/runs/<run-label>/
 ```
 
 Each slot contains a small README showing how to run the CLI prompt and capture the workspace
@@ -311,11 +311,11 @@ After a manual run finishes, capture the result:
 
 ```bash
 uv run python evals/impact/scripts/save_result.py \
-  --run-dir /private/tmp/aiwiki_first_round/ownership_boundary/runs/run_20260422-120000 \
+  --run-dir <eval-root>/ownership_boundary/runs/run_20260422-120000 \
   --slot s02 \
   --variant aiwiki_ambient_memory_workflow \
   --prompt-level original \
-  --workspace /private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260423-170541/slots/s02 \
+  --workspace <eval-root>/ownership_boundary/workspaces/20260423-170541/slots/s02 \
   --phase first_pass
 ```
 
@@ -344,8 +344,8 @@ After exporting visible Codex sessions, validate the run before making shareable
 
 ```bash
 uv run python evals/impact/scripts/validate_run.py \
-  --run-dir /private/tmp/aiwiki_first_round/ownership_boundary/runs/run_20260422-120000 \
-  --session-export-root /private/tmp/aiwiki_first_round/ownership_boundary/workspaces/20260423-170541/codex_sessions
+  --run-dir <eval-root>/ownership_boundary/runs/run_20260422-120000 \
+  --session-export-root <eval-root>/ownership_boundary/workspaces/20260423-170541/codex_sessions
 ```
 
 This writes `confounds.json`. If it contains critical confounds, `report.md` may still summarize
@@ -355,7 +355,7 @@ Write manual rubric labels separately from capture artifacts:
 
 ```bash
 uv run python evals/impact/scripts/score_run.py \
-  --run-dir /private/tmp/aiwiki_first_round/ownership_boundary/runs/run_20260422-120000 \
+  --run-dir <eval-root>/ownership_boundary/runs/run_20260422-120000 \
   --slot s02 \
   --prompt-level original \
   --label success \
@@ -378,7 +378,7 @@ target should be compared.
 Use one round root per experiment batch:
 
 ```text
-/private/tmp/aiwiki_first_round/
+<eval-root>/
   <experiment>/
     workspaces/
       <timestamp>/
@@ -409,7 +409,7 @@ Rules:
 - Reuse the same workspace set if you repeat `original` for another model or manual comparison set.
 - `runs/<run-label>/` stores captured results only; it must stay outside the variant repos.
 - Treat prompt level as a run dimension, not a workspace dimension.
-- Put obsolete or invalid workspace sets under `/private/tmp/aiwiki_first_round/archive/`.
+- Put obsolete or invalid workspace sets under `<eval-root>/archive/`.
 
 ## Standard Generation Flow
 
@@ -423,7 +423,7 @@ uv run python evals/impact/scripts/prepare_variants.py \
 This prints the new workspace root, for example:
 
 ```text
-/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260424-182219
+<eval-root>/release_distribution_integrity/workspaces/20260424-182219
 ```
 
 Create a run directory for one comparison pass:
@@ -431,7 +431,7 @@ Create a run directory for one comparison pass:
 ```bash
 uv run python evals/impact/scripts/init_run.py \
   --experiment release_distribution_integrity \
-  --workspace-root /private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260424-182219 \
+  --workspace-root <eval-root>/release_distribution_integrity/workspaces/20260424-182219 \
   --prompt-levels original \
   --run-label original-six-way
 ```
@@ -443,7 +443,7 @@ After the variant runs finish, export the visible Codex session traces for the w
 
 ```bash
 uv run python evals/impact/scripts/export_codex_sessions.py \
-  --workspace-root /private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260424-182219
+  --workspace-root <eval-root>/release_distribution_integrity/workspaces/20260424-182219
 ```
 
 If the historical Codex sessions were recorded under an older workspace root but you want to store
@@ -456,7 +456,7 @@ the export under a newer copied workspace tree, add:
 This creates:
 
 ```text
-/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260424-182219/codex_sessions/
+<eval-root>/release_distribution_integrity/workspaces/20260424-182219/codex_sessions/
 ```
 
 The export is workspace-level metadata, not variant-repo content. A complete export is required

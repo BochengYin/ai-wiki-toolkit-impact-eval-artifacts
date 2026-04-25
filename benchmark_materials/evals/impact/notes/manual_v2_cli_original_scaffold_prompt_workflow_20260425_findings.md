@@ -20,10 +20,10 @@ Prompt/model condition:
 
 Run artifacts:
 
-- workspace root: `/private/tmp/aiwiki_first_round/scaffold_prompt_workflow_compliance/workspaces/20260425-160315`
-- run dir: `/private/tmp/aiwiki_first_round/scaffold_prompt_workflow_compliance/runs/cli-original-scaffold-20260425-1618`
-- session export: `/private/tmp/aiwiki_first_round/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/codex_sessions`
-- generated report: `/private/tmp/aiwiki_first_round/scaffold_prompt_workflow_compliance/runs/cli-original-scaffold-20260425-1618/report.md`
+- workspace root: `<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315`
+- run dir: `<eval-root>/scaffold_prompt_workflow_compliance/runs/cli-original-scaffold-20260425-1618`
+- session export: `<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/codex_sessions`
+- generated report: `<eval-root>/scaffold_prompt_workflow_compliance/runs/cli-original-scaffold-20260425-1618/report.md`
 
 ## Validation
 

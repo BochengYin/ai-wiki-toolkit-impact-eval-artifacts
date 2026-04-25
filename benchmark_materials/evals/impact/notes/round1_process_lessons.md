@@ -27,8 +27,8 @@ Saving results outside the variant repos was the right call.
 
 The current flow:
 
-- prepares clean variant repos under `/private/tmp/aiwiki_first_round/.../workspaces/...`
-- saves diffs and run metadata under `/private/tmp/aiwiki_first_round/.../runs/...`
+- prepares clean variant repos under `<eval-root>/.../workspaces/...`
+- saves diffs and run metadata under `<eval-root>/.../runs/...`
 
 That separation prevents one manual run from leaking back into later workspaces.
 

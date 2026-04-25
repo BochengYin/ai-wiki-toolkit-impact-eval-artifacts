@@ -21,10 +21,10 @@ Prompt/model condition:
 
 Run artifacts:
 
-- workspace root: `/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260425-124642`
-- run dir: `/private/tmp/aiwiki_first_round/release_distribution_integrity/runs/cli-original-release-20260425-1246`
-- session export: `/private/tmp/aiwiki_first_round/release_distribution_integrity/workspaces/20260425-124642/codex_sessions`
-- generated report: `/private/tmp/aiwiki_first_round/release_distribution_integrity/runs/cli-original-release-20260425-1246/report.md`
+- workspace root: `<eval-root>/release_distribution_integrity/workspaces/20260425-124642`
+- run dir: `<eval-root>/release_distribution_integrity/runs/cli-original-release-20260425-1246`
+- session export: `<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions`
+- generated report: `<eval-root>/release_distribution_integrity/runs/cli-original-release-20260425-1246/report.md`
 
 The run used `evals/impact/scripts/run_cli_slots.py`, which wrapped the full five-slot sequence in
 `/usr/bin/caffeinate -dimsu`. `sleep_guard.json` shows the guard was enabled from

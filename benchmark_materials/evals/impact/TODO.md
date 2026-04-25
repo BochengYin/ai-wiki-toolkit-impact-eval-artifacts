@@ -161,7 +161,7 @@ Run and documented.
 Artifacts:
 
 - `evals/impact/notes/manual_v2_cli_original_windows_arm_20260425_findings.md`
-- `/private/tmp/aiwiki_first_round/windows_arm_smoke_cli_output/runs/cli-original-windows-arm-20260425-1618/report.md`
+- `<eval-root>/windows_arm_smoke_cli_output/runs/cli-original-windows-arm-20260425-1618/report.md`
 
 Current defended takeaway:
 
@@ -176,7 +176,7 @@ Run and documented.
 Artifacts:
 
 - `evals/impact/notes/manual_v2_cli_original_release_runtime_20260425_findings.md`
-- `/private/tmp/aiwiki_first_round/release_runtime_compatibility/runs/cli-original-runtime-20260425-1618/report.md`
+- `<eval-root>/release_runtime_compatibility/runs/cli-original-runtime-20260425-1618/report.md`
 
 Current defended takeaway:
 
@@ -200,7 +200,7 @@ Run and documented.
 Artifacts:
 
 - `evals/impact/notes/manual_v2_cli_original_scaffold_prompt_workflow_20260425_findings.md`
-- `/private/tmp/aiwiki_first_round/scaffold_prompt_workflow_compliance/runs/cli-original-scaffold-20260425-1618/report.md`
+- `<eval-root>/scaffold_prompt_workflow_compliance/runs/cli-original-scaffold-20260425-1618/report.md`
 
 Current defended takeaway:
 

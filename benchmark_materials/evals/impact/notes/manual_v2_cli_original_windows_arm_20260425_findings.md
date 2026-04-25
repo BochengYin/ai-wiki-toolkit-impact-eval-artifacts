@@ -20,10 +20,10 @@ Prompt/model condition:
 
 Run artifacts:
 
-- workspace root: `/private/tmp/aiwiki_first_round/windows_arm_smoke_cli_output/workspaces/20260425-160315`
-- run dir: `/private/tmp/aiwiki_first_round/windows_arm_smoke_cli_output/runs/cli-original-windows-arm-20260425-1618`
-- session export: `/private/tmp/aiwiki_first_round/windows_arm_smoke_cli_output/workspaces/20260425-160315/codex_sessions`
-- generated report: `/private/tmp/aiwiki_first_round/windows_arm_smoke_cli_output/runs/cli-original-windows-arm-20260425-1618/report.md`
+- workspace root: `<eval-root>/windows_arm_smoke_cli_output/workspaces/20260425-160315`
+- run dir: `<eval-root>/windows_arm_smoke_cli_output/runs/cli-original-windows-arm-20260425-1618`
+- session export: `<eval-root>/windows_arm_smoke_cli_output/workspaces/20260425-160315/codex_sessions`
+- generated report: `<eval-root>/windows_arm_smoke_cli_output/runs/cli-original-windows-arm-20260425-1618/report.md`
 
 ## Validation
 
