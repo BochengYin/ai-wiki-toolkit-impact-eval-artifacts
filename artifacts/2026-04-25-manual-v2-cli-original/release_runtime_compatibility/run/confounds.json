@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "validated_at": "2026-04-25T17:43:13",
+  "run_dir": "<eval-root>/release_runtime_compatibility/runs/cli-original-runtime-20260425-1618",
+  "session_export_root": "<eval-root>/release_runtime_compatibility/workspaces/20260425-160315/codex_sessions",
+  "shareable_for_causal_claims": true,
+  "critical_confounds": [],
+  "warnings": []
+}

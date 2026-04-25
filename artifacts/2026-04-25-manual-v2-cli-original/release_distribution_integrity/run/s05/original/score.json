@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s05",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/release_distribution_integrity_runbook.md"
+  ],
+  "evidence": [
+    "first_pass/workspace_diff.patch",
+    "first_pass/workspace_diff_stat.txt",
+    "first_pass/final_message.md",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s05/019dc2ba-02dc-7313-9e9b-4ed5aaaa2e97/visible_transcript.md",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s05/019dc2ba-02dc-7313-9e9b-4ed5aaaa2e97/visible_session.jsonl"
+  ],
+  "notes": "Primary AI wiki workflow slot. Release workflow, npm metadata, Windows zip staging, docs, Homebrew, and tests were aligned. It explicitly handled the known Alpine musl binutils/root setup hazard and npm libc target resolution.",
+  "scored_at": "2026-04-25T13:59:43"
+}

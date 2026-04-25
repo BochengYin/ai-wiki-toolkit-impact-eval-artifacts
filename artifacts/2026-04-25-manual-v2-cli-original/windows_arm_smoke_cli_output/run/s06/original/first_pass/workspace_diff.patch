@@ -1,0 +1,89 @@
+diff --git a/.github/workflows/release-smoke-windows-arm.yml b/.github/workflows/release-smoke-windows-arm.yml
+index d237b21..9c7c54d 100644
+--- a/.github/workflows/release-smoke-windows-arm.yml
++++ b/.github/workflows/release-smoke-windows-arm.yml
+@@ -81,9 +81,10 @@ jobs:
+       - name: Run Windows ARM binary smoke check
+         shell: pwsh
+         run: |
++          $expectedVersion = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"
+           $version = (& "release-assets/windows-arm64/aiwiki-toolkit.exe" --version).Trim()
+-          if ($version -ne "${{ steps.release.outputs.package_version }}") {
+-            throw "Expected version ${{ steps.release.outputs.package_version }} but binary returned $version."
++          if ($version -ne $expectedVersion) {
++            throw "Expected version $expectedVersion but binary returned $version."
+           }
+ 
+   npm-smoke:
+@@ -148,7 +149,8 @@ jobs:
+       - name: Run npm-installed Windows ARM smoke check
+         shell: pwsh
+         run: |
++          $expectedVersion = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"
+           $version = (& aiwiki-toolkit --version).Trim()
+-          if ($version -ne "${{ steps.release.outputs.package_version }}") {
+-            throw "Expected version ${{ steps.release.outputs.package_version }} but npm-installed binary returned $version."
++          if ($version -ne $expectedVersion) {
++            throw "Expected version $expectedVersion but npm-installed binary returned $version."
+           }
+diff --git a/tests/test_release_smoke_workflow.py b/tests/test_release_smoke_workflow.py
+index 79b9a06..5e1fb5f 100644
+--- a/tests/test_release_smoke_workflow.py
++++ b/tests/test_release_smoke_workflow.py
+@@ -28,3 +28,18 @@ def test_release_smoke_workflow_checks_release_archive_and_npm_install() -> None
+     assert '& "release-assets/windows-arm64/aiwiki-toolkit.exe" --version' in workflow
+     assert 'npm install -g "ai-wiki-toolkit@$version"' in workflow
+     assert '& aiwiki-toolkit --version' in workflow
++
++
++def test_release_smoke_workflow_expects_cli_version_output() -> None:
++    workflow = (ROOT / ".github" / "workflows" / "release-smoke-windows-arm.yml").read_text(
++        encoding="utf-8"
++    )
++
++    assert (
++        workflow.count(
++            '$expectedVersion = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"'
++        )
++        == 2
++    )
++    assert workflow.count("if ($version -ne $expectedVersion)") == 2
++    assert 'if ($version -ne "${{ steps.release.outputs.package_version }}")' not in workflow
+diff --git a/ai-wiki/people/eval-user/drafts/release-smoke-version-checks-must-match-cli-output.md b/ai-wiki/people/eval-user/drafts/release-smoke-version-checks-must-match-cli-output.md
+new file mode 100644
+index 0000000..8fd5bf2
+--- /dev/null
++++ b/ai-wiki/people/eval-user/drafts/release-smoke-version-checks-must-match-cli-output.md
+@@ -0,0 +1,32 @@
++---
++title: "Release smoke version checks must match CLI output"
++author_handle: "eval-user"
++model: "gpt-5"
++source_kind: "task"
++status: "draft"
++created_at: "2026-04-25T16:42:30+10:00"
++updated_at: "2026-04-25T16:42:30+10:00"
++promotion_candidate: false
++promotion_basis: "none"
++---
++# Review Draft
++
++## Context
++
++The `Release Smoke Windows ARM` workflow failed in both the GitHub Release archive smoke path and the npm-installed smoke path during version verification.
++
++The binary existed and executed successfully, but `aiwiki-toolkit --version` returns the documented CLI string `ai-wiki-toolkit <version>`. The smoke workflow compared that output to the bare package version, so both paths failed after the executable was already usable.
++
++## What Went Wrong
++
++The workflow duplicated a version expectation instead of reusing the CLI contract that is already covered by `tests/test_cli_version.py`.
++
++## Fix
++
++When a release smoke test runs `aiwiki-toolkit --version`, compare against `ai-wiki-toolkit <package version>` unless the CLI contract itself changes.
++
++For workflow tests, assert the smoke workflow builds that full expected string and does not compare directly against the bare package version.
++
++## Reuse Assessment
++
++This is reusable for release and package-manager smoke tests that validate command-line tools. Thin distribution checks should verify the exact public CLI output, not an inferred subset, otherwise a healthy binary can fail at the final smoke assertion.

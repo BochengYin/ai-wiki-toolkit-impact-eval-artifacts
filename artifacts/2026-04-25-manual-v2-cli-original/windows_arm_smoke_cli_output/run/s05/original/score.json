@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s05",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/windows_arm_smoke_cli_output/spec.toml",
+    "evals/impact/prompts/windows_arm_smoke_cli_output/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Fixed both smoke paths and added regression tests; ambient memory slot used the target problem note and passed full pytest.",
+  "scored_at": "2026-04-25T19:40:59"
+}

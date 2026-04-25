@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s03",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/release_distribution_integrity_runbook.md"
+  ],
+  "evidence": [
+    "first_pass/workspace_diff.patch",
+    "first_pass/workspace_diff_stat.txt",
+    "first_pass/final_message.md",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s03/019dc2a1-1933-77a2-a71f-19012946910c/visible_transcript.md",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s03/019dc2a1-1933-77a2-a71f-19012946910c/visible_session.jsonl"
+  ],
+  "notes": "Diagnostic slot. Added full public target matrix, Windows zip staging, npm libc metadata/runtime musl selection, docs, and tests. It used root/container setup for Alpine musl and passed pytest plus npm pack.",
+  "scored_at": "2026-04-25T13:59:43"
+}

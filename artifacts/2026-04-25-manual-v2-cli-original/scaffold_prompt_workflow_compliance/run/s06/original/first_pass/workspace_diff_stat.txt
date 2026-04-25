@@ -1,0 +1,12 @@
+ README.md                                 |   28 +-
+ src/ai_wiki_toolkit/content.py            | 1033 ++++++++++++++++++++++++++---
+ src/ai_wiki_toolkit/doctor.py             |   66 +-
+ src/ai_wiki_toolkit/scaffold.py           |    3 +
+ src/ai_wiki_toolkit/wiki_schema.py        |    6 +
+ tests/test_compatibility_scenarios.py     |    4 +-
+ tests/test_doctor.py                      |   11 +-
+ tests/test_init_scenarios.py              |  284 ++++----
+ tests/test_install_uninstall_scenarios.py |   14 +
+ tests/test_prompt_scenarios.py            |    5 +-
+ tests/test_wiki_schema.py                 |   23 +
+ 11 files changed, 1181 insertions(+), 296 deletions(-)

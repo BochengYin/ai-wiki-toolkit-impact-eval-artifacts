@@ -1,0 +1,11 @@
+{
+  "slot": "s01",
+  "variant": "no_aiwiki_workflow",
+  "prompt_level": "original",
+  "workspace": "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/slots/s01",
+  "final_message": "<eval-root>/release_distribution_integrity/runs/cli-original-release-20260425-1246/s01/original/first_pass/final_message.md",
+  "codex_returncode": 0,
+  "save_result_returncode": 0,
+  "started_at": "2026-04-25T12:46:59",
+  "finished_at": "2026-04-25T12:58:24"
+}

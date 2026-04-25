@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "enabled": true,
+  "started_at": "2026-04-25T14:43:47",
+  "stopped_at": "2026-04-25T14:57:50",
+  "command": [
+    "/usr/bin/caffeinate",
+    "-dimsu"
+  ],
+  "pid": 66205,
+  "returncode": -15
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s01",
+  "prompt_level": "original",
+  "label": "partial",
+  "rubric_refs": [
+    "evals/impact/families/release_runtime_compatibility/spec.toml",
+    "evals/impact/prompts/release_runtime_compatibility/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Added runtime smoke gates for the release binary and staged npm install in node:24-bookworm before publish, but left linux-x64 building on ubuntu-24.04, so it catches the failure without producing an older-glibc-compatible binary baseline.",
+  "scored_at": "2026-04-25T19:40:59"
+}

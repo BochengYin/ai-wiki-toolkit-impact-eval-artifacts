@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s02",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/release_distribution_integrity_runbook.md"
+  ],
+  "evidence": [
+    "first_pass/workspace_diff.patch",
+    "first_pass/workspace_diff_stat.txt",
+    "first_pass/final_message.md",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s02/019dc292-f59e-7793-900f-23638039e685/visible_transcript.md",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s02/019dc292-f59e-7793-900f-23638039e685/visible_session.jsonl"
+  ],
+  "notes": "Diagnostic slot. Release workflow, npm metadata, zip staging, docs, Homebrew, and tests were aligned. It included Alpine musl binutils setup under root and runtime checks; npm pack needed a local cache workaround but passed.",
+  "scored_at": "2026-04-25T13:59:43"
+}

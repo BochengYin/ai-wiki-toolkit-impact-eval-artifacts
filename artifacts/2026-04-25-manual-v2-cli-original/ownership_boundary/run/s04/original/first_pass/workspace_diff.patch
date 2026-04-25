@@ -1,0 +1,622 @@
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 7d2bcf8..1befa32 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -17,15 +17,25 @@ Use GitHub Issues as the default place for feedback.
+ 
+ Please do not work directly on `main`.
+ 
+-Use a topic branch for your change:
++Use the repo-local helper to create a dated topic branch for your change:
+ 
+ ```bash
+-git switch main
+-git pull --ff-only
+-git switch -c your-branch-name
++uv run python scripts/pr_flow.py start feature "short description"
+ ```
+ 
+-Then push that branch and open a pull request.
++Allowed branch names are:
++
++- `feature/YYYY_MM_DD_description`
++- `chore/YYYY_MM_DD_description`
++- `fix/YYYY_MM_DD_description`
++
++Then commit your changes, push that branch, and open a pull request:
++
++```bash
++uv run python scripts/pr_flow.py create
++```
++
++The `create` and `finish` commands use the GitHub CLI (`gh`).
+ 
+ The intended merge path for this repository is:
+ 
+@@ -37,8 +47,7 @@ The intended merge path for this repository is:
+ After the PR is merged, switch back to `main` locally and sync before starting the next task:
+ 
+ ```bash
+-git switch main
+-git pull --ff-only
++uv run python scripts/pr_flow.py finish
+ ```
+ 
+ `CODEOWNERS` is configured so `@BochengYin` is the default code owner. If branch protection is enabled in GitHub settings, that review can be required before merge.
+diff --git a/ai-wiki/people/eval-user/drafts/contributor-pr-flow-helper-enforces-dated-branch-names.md b/ai-wiki/people/eval-user/drafts/contributor-pr-flow-helper-enforces-dated-branch-names.md
+new file mode 100644
+index 0000000..9409b4e
+--- /dev/null
++++ b/ai-wiki/people/eval-user/drafts/contributor-pr-flow-helper-enforces-dated-branch-names.md
+@@ -0,0 +1,38 @@
++---
++title: "Contributor PR flow helper enforces dated branch names"
++author_handle: "eval-user"
++model: "gpt-5"
++source_kind: "implementation"
++status: "draft"
++created_at: "2026-04-25T12:29:00+10:00"
++updated_at: "2026-04-25T12:29:00+10:00"
++promotion_candidate: false
++promotion_basis: "none"
++---
++# Review Draft
++
++## Context
++
++The contributor branch-and-PR flow now has a repo-local helper at `scripts/pr_flow.py`.
++It creates branches from `main`, pushes the current contributor branch, verifies the remote
++branch exists, opens a GitHub pull request, and switches back to `main` only after the PR is
++merged.
++
++## Durable Rule Candidate
++
++Branch names for this workflow should use one of these dated forms:
++
++- `feature/YYYY_MM_DD_description`
++- `chore/YYYY_MM_DD_description`
++- `fix/YYYY_MM_DD_description`
++
++## Existing Memory Interaction
++
++`ai-wiki/workflows.md` already described the Branch And Merge Flow and mentioned the missing
++`scripts/pr_flow.py` helper, but its older example prefixes included `feat/...` and `docs/...`.
++The helper and `CONTRIBUTING.md` now use the requested `feature`, `chore`, and `fix` forms.
++
++## Reuse Assessment
++
++Keep this as a draft until a human decides whether to update the shared workflow note. The code
++and contributor docs are already aligned with the new branch naming rule.
+diff --git a/scripts/pr_flow.py b/scripts/pr_flow.py
+new file mode 100644
+index 0000000..a00a6fa
+--- /dev/null
++++ b/scripts/pr_flow.py
+@@ -0,0 +1,9 @@
++"""Repo-local contributor branch and pull request flow helper."""
++
++from __future__ import annotations
++
++from ai_wiki_toolkit.pr_flow import main
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/src/ai_wiki_toolkit/pr_flow.py b/src/ai_wiki_toolkit/pr_flow.py
+new file mode 100644
+index 0000000..34856f8
+--- /dev/null
++++ b/src/ai_wiki_toolkit/pr_flow.py
+@@ -0,0 +1,263 @@
++"""Contributor branch and pull request flow helpers."""
++
++from __future__ import annotations
++
++import argparse
++from collections.abc import Callable, Sequence
++from dataclasses import dataclass
++from datetime import date, datetime
++from pathlib import Path
++import re
++import subprocess
++import sys
++
++from ai_wiki_toolkit.paths import RepoRootNotFoundError, resolve_repo_root
++
++BRANCH_KINDS = ("feature", "chore", "fix")
++BRANCH_NAME_PATTERN = re.compile(
++    r"^(?:feature|chore|fix)/(?P<branch_date>\d{4}_\d{2}_\d{2})_[a-z0-9][a-z0-9_-]*$"
++)
++BRANCH_NAME_HELP = (
++    "feature/YYYY_MM_DD_description, chore/YYYY_MM_DD_description, "
++    "or fix/YYYY_MM_DD_description"
++)
++DATE_PATTERN = re.compile(r"^\d{4}_\d{2}_\d{2}$")
++DESCRIPTION_SEPARATOR_RE = re.compile(r"[^a-z0-9]+")
++DESCRIPTION_UNDERSCORE_RE = re.compile(r"_+")
++
++CommandRunner = Callable[..., subprocess.CompletedProcess[str]]
++
++
++class PrFlowError(RuntimeError):
++    """Raised when the branch and pull request flow cannot continue."""
++
++
++@dataclass(frozen=True)
++class FlowResult:
++    branch: str
++
++
++def normalize_description(description: str) -> str:
++    normalized = DESCRIPTION_SEPARATOR_RE.sub("_", description.strip().lower())
++    normalized = DESCRIPTION_UNDERSCORE_RE.sub("_", normalized).strip("_")
++    if not normalized:
++        raise PrFlowError("Branch description must contain at least one letter or number.")
++    return normalized
++
++
++def parse_branch_date(value: str | None) -> str:
++    if value is None:
++        return date.today().strftime("%Y_%m_%d")
++    if not DATE_PATTERN.match(value):
++        raise PrFlowError("Branch date must use YYYY_MM_DD format.")
++    try:
++        datetime.strptime(value, "%Y_%m_%d")
++    except ValueError as exc:
++        raise PrFlowError("Branch date must be a real calendar date.") from exc
++    return value
++
++
++def build_branch_name(kind: str, description: str, *, branch_date: str | None = None) -> str:
++    if kind not in BRANCH_KINDS:
++        raise PrFlowError(f"Branch kind must be one of: {', '.join(BRANCH_KINDS)}.")
++    return f"{kind}/{parse_branch_date(branch_date)}_{normalize_description(description)}"
++
++
++def validate_branch_name(branch: str) -> None:
++    match = BRANCH_NAME_PATTERN.match(branch)
++    if not match:
++        raise PrFlowError(f"Branch name must match {BRANCH_NAME_HELP}.")
++    parse_branch_date(match.group("branch_date"))
++
++
++def _runner_or_default(runner: CommandRunner | None) -> CommandRunner:
++    return runner or subprocess.run
++
++
++def _run(
++    args: Sequence[str],
++    *,
++    repo_root: Path,
++    runner: CommandRunner | None = None,
++    capture_output: bool = False,
++) -> subprocess.CompletedProcess[str]:
++    try:
++        result = _runner_or_default(runner)(
++            list(args),
++            cwd=repo_root,
++            capture_output=capture_output,
++            text=True,
++            check=False,
++        )
++    except FileNotFoundError as exc:
++        raise PrFlowError(f"Required command not found: {args[0]}") from exc
++
++    if result.returncode == 0:
++        return result
++
++    detail = ""
++    if result.stderr:
++        detail = f"\n{result.stderr.strip()}"
++    raise PrFlowError(f"Command failed: {' '.join(args)}{detail}")
++
++
++def _stdout(
++    args: Sequence[str],
++    *,
++    repo_root: Path,
++    runner: CommandRunner | None = None,
++) -> str:
++    return _run(args, repo_root=repo_root, runner=runner, capture_output=True).stdout.strip()
++
++
++def current_branch(repo_root: Path, *, runner: CommandRunner | None = None) -> str:
++    branch = _stdout(["git", "branch", "--show-current"], repo_root=repo_root, runner=runner)
++    if not branch:
++        raise PrFlowError("Detached HEAD is not supported for this workflow.")
++    return branch
++
++
++def require_clean_worktree(repo_root: Path, *, runner: CommandRunner | None = None) -> None:
++    status = _stdout(["git", "status", "--porcelain"], repo_root=repo_root, runner=runner)
++    if status:
++        raise PrFlowError("Commit or stash local changes before continuing.")
++
++
++def _resolve_repo(repo_root: Path | None) -> Path:
++    try:
++        return (repo_root or resolve_repo_root()).resolve()
++    except RepoRootNotFoundError as exc:
++        raise PrFlowError(str(exc)) from exc
++
++
++def start_flow(
++    kind: str,
++    description: str,
++    *,
++    branch_date: str | None = None,
++    repo_root: Path | None = None,
++    runner: CommandRunner | None = None,
++) -> FlowResult:
++    root = _resolve_repo(repo_root)
++    branch = build_branch_name(kind, description, branch_date=branch_date)
++    current = current_branch(root, runner=runner)
++    if current != "main":
++        raise PrFlowError("Start new contributor branches from main.")
++
++    require_clean_worktree(root, runner=runner)
++    _run(["git", "pull", "--ff-only"], repo_root=root, runner=runner)
++    _run(["git", "switch", "-c", branch], repo_root=root, runner=runner)
++    return FlowResult(branch=branch)
++
++
++def create_flow(
++    *,
++    repo_root: Path | None = None,
++    runner: CommandRunner | None = None,
++) -> FlowResult:
++    root = _resolve_repo(repo_root)
++    branch = current_branch(root, runner=runner)
++    if branch == "main":
++        raise PrFlowError("Create pull requests from a contributor branch, not main.")
++    validate_branch_name(branch)
++    require_clean_worktree(root, runner=runner)
++
++    _run(["git", "push", "-u", "origin", branch], repo_root=root, runner=runner)
++    _run(
++        ["git", "ls-remote", "--exit-code", "--heads", "origin", branch],
++        repo_root=root,
++        runner=runner,
++    )
++    _run(["gh", "pr", "create", "--fill"], repo_root=root, runner=runner)
++    return FlowResult(branch=branch)
++
++
++def finish_flow(
++    *,
++    repo_root: Path | None = None,
++    runner: CommandRunner | None = None,
++) -> FlowResult:
++    root = _resolve_repo(repo_root)
++    branch = current_branch(root, runner=runner)
++    if branch == "main":
++        raise PrFlowError("Finish this workflow from the contributor branch after its PR is merged.")
++    validate_branch_name(branch)
++
++    merged = _stdout(
++        [
++            "gh",
++            "pr",
++            "view",
++            "--json",
++            "state,mergedAt",
++            "--jq",
++            '.state == "MERGED" or .mergedAt != null',
++        ],
++        repo_root=root,
++        runner=runner,
++    )
++    if merged.lower() != "true":
++        raise PrFlowError(f"Pull request for {branch} is not merged yet.")
++
++    _run(["git", "switch", "main"], repo_root=root, runner=runner)
++    _run(["git", "pull", "--ff-only"], repo_root=root, runner=runner)
++    return FlowResult(branch=branch)
++
++
++def build_parser() -> argparse.ArgumentParser:
++    parser = argparse.ArgumentParser(description=__doc__)
++    subparsers = parser.add_subparsers(dest="command", required=True)
++
++    start = subparsers.add_parser(
++        "start",
++        help="Create a dated contributor branch from main.",
++    )
++    start.add_argument("kind", choices=BRANCH_KINDS, help="Branch kind.")
++    start.add_argument(
++        "description",
++        nargs="+",
++        help="Short branch description. It is normalized into the branch name.",
++    )
++    start.add_argument(
++        "--date",
++        dest="branch_date",
++        help="Override the branch date for tests or prepared branches. Format: YYYY_MM_DD.",
++    )
++
++    subparsers.add_parser(
++        "create",
++        help="Push the current contributor branch and open a pull request.",
++    )
++    subparsers.add_parser(
++        "finish",
++        help="After the pull request is merged, switch back to main and sync it.",
++    )
++    return parser
++
++
++def main(argv: Sequence[str] | None = None) -> int:
++    args = build_parser().parse_args(argv)
++    try:
++        if args.command == "start":
++            result = start_flow(
++                args.kind,
++                " ".join(args.description),
++                branch_date=args.branch_date,
++            )
++            print(f"Created branch: {result.branch}")
++        elif args.command == "create":
++            result = create_flow()
++            print(f"Created pull request from: {result.branch}")
++        elif args.command == "finish":
++            result = finish_flow()
++            print(f"Returned to main after merged PR for: {result.branch}")
++        else:
++            raise AssertionError(f"unhandled command: {args.command}")
++    except PrFlowError as exc:
++        print(str(exc), file=sys.stderr)
++        return 1
++    return 0
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tests/test_pr_flow.py b/tests/test_pr_flow.py
+new file mode 100644
+index 0000000..5066fa7
+--- /dev/null
++++ b/tests/test_pr_flow.py
+@@ -0,0 +1,243 @@
++from __future__ import annotations
++
++from pathlib import Path
++import subprocess
++
++import pytest
++
++from ai_wiki_toolkit.pr_flow import (
++    PrFlowError,
++    build_branch_name,
++    create_flow,
++    finish_flow,
++    start_flow,
++    validate_branch_name,
++)
++
++
++class FakeRunner:
++    def __init__(self, responses: dict[tuple[str, ...], subprocess.CompletedProcess[str]]) -> None:
++        self.responses = responses
++        self.calls: list[list[str]] = []
++
++    def __call__(self, args: list[str], **kwargs) -> subprocess.CompletedProcess[str]:
++        self.calls.append(args)
++        return self.responses.get(tuple(args), subprocess.CompletedProcess(args, 0, "", ""))
++
++
++def completed(args: list[str], stdout: str = "", stderr: str = "", returncode: int = 0):
++    return subprocess.CompletedProcess(args, returncode, stdout, stderr)
++
++
++def test_build_branch_name_normalizes_description() -> None:
++    assert (
++        build_branch_name("feature", "Add PR flow helper", branch_date="2026_04_25")
++        == "feature/2026_04_25_add_pr_flow_helper"
++    )
++
++
++@pytest.mark.parametrize(
++    "branch",
++    [
++        "feature/2026_04_25_pr_flow_helper",
++        "chore/2026_04_25_update_docs",
++        "fix/2026_04_25_push_retry",
++    ],
++)
++def test_validate_branch_name_accepts_allowed_shapes(branch: str) -> None:
++    validate_branch_name(branch)
++
++
++@pytest.mark.parametrize(
++    "branch",
++    [
++        "feat/2026_04_25_pr_flow_helper",
++        "feature/2026-04-25_pr_flow_helper",
++        "feature/2026_99_99_pr_flow_helper",
++        "feature/2026_04_25",
++        "feature/2026_04_25_PR_flow_helper",
++        "docs/2026_04_25_update_contributing",
++    ],
++)
++def test_validate_branch_name_rejects_other_shapes(branch: str) -> None:
++    with pytest.raises(PrFlowError, match="Branch name must match|Branch date"):
++        validate_branch_name(branch)
++
++
++def test_start_flow_pulls_main_and_creates_dated_branch() -> None:
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): completed([], "main\n"),
++            ("git", "status", "--porcelain"): completed([], ""),
++        }
++    )
++
++    result = start_flow(
++        "feature",
++        "Add PR flow helper",
++        branch_date="2026_04_25",
++        repo_root=Path("/repo"),
++        runner=runner,
++    )
++
++    assert result.branch == "feature/2026_04_25_add_pr_flow_helper"
++    assert runner.calls == [
++        ["git", "branch", "--show-current"],
++        ["git", "status", "--porcelain"],
++        ["git", "pull", "--ff-only"],
++        ["git", "switch", "-c", "feature/2026_04_25_add_pr_flow_helper"],
++    ]
++
++
++def test_start_flow_requires_main() -> None:
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): completed(
++                [], "feature/2026_04_25_existing\n"
++            ),
++        }
++    )
++
++    with pytest.raises(PrFlowError, match="Start new contributor branches from main"):
++        start_flow(
++            "feature",
++            "new work",
++            branch_date="2026_04_25",
++            repo_root=Path("/repo"),
++            runner=runner,
++        )
++
++    assert runner.calls == [["git", "branch", "--show-current"]]
++
++
++def test_create_flow_pushes_current_branch_and_creates_pr() -> None:
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): completed(
++                [], "feature/2026_04_25_add_pr_flow_helper\n"
++            ),
++            ("git", "status", "--porcelain"): completed([], ""),
++        }
++    )
++
++    result = create_flow(repo_root=Path("/repo"), runner=runner)
++
++    assert result.branch == "feature/2026_04_25_add_pr_flow_helper"
++    assert runner.calls == [
++        ["git", "branch", "--show-current"],
++        ["git", "status", "--porcelain"],
++        ["git", "push", "-u", "origin", "feature/2026_04_25_add_pr_flow_helper"],
++        [
++            "git",
++            "ls-remote",
++            "--exit-code",
++            "--heads",
++            "origin",
++            "feature/2026_04_25_add_pr_flow_helper",
++        ],
++        ["gh", "pr", "create", "--fill"],
++    ]
++
++
++def test_create_flow_rejects_main() -> None:
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): completed([], "main\n"),
++        }
++    )
++
++    with pytest.raises(PrFlowError, match="not main"):
++        create_flow(repo_root=Path("/repo"), runner=runner)
++
++    assert runner.calls == [["git", "branch", "--show-current"]]
++
++
++def test_create_flow_rejects_dirty_worktree() -> None:
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): completed(
++                [], "feature/2026_04_25_add_pr_flow_helper\n"
++            ),
++            ("git", "status", "--porcelain"): completed([], " M CONTRIBUTING.md\n"),
++        }
++    )
++
++    with pytest.raises(PrFlowError, match="Commit or stash"):
++        create_flow(repo_root=Path("/repo"), runner=runner)
++
++    assert runner.calls == [
++        ["git", "branch", "--show-current"],
++        ["git", "status", "--porcelain"],
++    ]
++
++
++def test_finish_flow_requires_merged_pr_before_switching_main() -> None:
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): completed(
++                [], "fix/2026_04_25_branch_pr_flow\n"
++            ),
++            (
++                "gh",
++                "pr",
++                "view",
++                "--json",
++                "state,mergedAt",
++                "--jq",
++                '.state == "MERGED" or .mergedAt != null',
++            ): completed([], "true\n"),
++        }
++    )
++
++    result = finish_flow(repo_root=Path("/repo"), runner=runner)
++
++    assert result.branch == "fix/2026_04_25_branch_pr_flow"
++    assert runner.calls == [
++        ["git", "branch", "--show-current"],
++        [
++            "gh",
++            "pr",
++            "view",
++            "--json",
++            "state,mergedAt",
++            "--jq",
++            '.state == "MERGED" or .mergedAt != null',
++        ],
++        ["git", "switch", "main"],
++        ["git", "pull", "--ff-only"],
++    ]
++
++
++def test_finish_flow_does_not_switch_when_pr_is_open() -> None:
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): completed(
++                [], "fix/2026_04_25_branch_pr_flow\n"
++            ),
++            (
++                "gh",
++                "pr",
++                "view",
++                "--json",
++                "state,mergedAt",
++                "--jq",
++                '.state == "MERGED" or .mergedAt != null',
++            ): completed([], "false\n"),
++        }
++    )
++
++    with pytest.raises(PrFlowError, match="not merged yet"):
++        finish_flow(repo_root=Path("/repo"), runner=runner)
++
++    assert runner.calls == [
++        ["git", "branch", "--show-current"],
++        [
++            "gh",
++            "pr",
++            "view",
++            "--json",
++            "state,mergedAt",
++            "--jq",
++            '.state == "MERGED" or .mergedAt != null',
++        ],
++    ]

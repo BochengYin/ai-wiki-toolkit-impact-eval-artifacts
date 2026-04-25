@@ -1,0 +1,22 @@
+ .github/workflows/publish-npm.yml           |  2 +-
+ .github/workflows/release-binaries.yml      | 98 ++++++++++++++++++++++++++---
+ README.md                                   |  6 +-
+ docs/homebrew-tap.md                        |  3 +
+ docs/npm-publish.md                         |  2 +-
+ docs/npm-wrapper.md                         |  8 ++-
+ docs/releasing.md                           | 38 +++++++++--
+ npm/platform-targets.json                   | 31 +++++++++
+ npm/shared.js                               | 38 ++++++++++-
+ package.json                                |  9 ++-
+ scripts/build_linux_release_in_container.py | 27 +++++++-
+ src/ai_wiki_toolkit/homebrew_formula.py     |  7 ++-
+ src/ai_wiki_toolkit/npm_distribution.py     | 35 +++++++++--
+ src/ai_wiki_toolkit/release_build.py        | 18 ++++--
+ tests/test_distribution_metadata.py         | 27 +++++++-
+ tests/test_homebrew_formula.py              | 12 +++-
+ tests/test_npm_wrapper.py                   | 69 +++++++++++++++++---
+ tests/test_release_artifacts.py             |  3 +
+ tests/test_release_build.py                 | 31 +++++++++
+ 19 files changed, 412 insertions(+), 52 deletions(-)
+ ...arget-tests-should-use-resolved-package-name.md | 36 ++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)

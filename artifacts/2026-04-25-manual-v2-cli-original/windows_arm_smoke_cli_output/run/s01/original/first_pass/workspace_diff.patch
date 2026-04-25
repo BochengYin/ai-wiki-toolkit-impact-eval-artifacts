@@ -1,0 +1,42 @@
+diff --git a/.github/workflows/release-smoke-windows-arm.yml b/.github/workflows/release-smoke-windows-arm.yml
+index d237b21..2ac75ec 100644
+--- a/.github/workflows/release-smoke-windows-arm.yml
++++ b/.github/workflows/release-smoke-windows-arm.yml
+@@ -81,9 +81,10 @@ jobs:
+       - name: Run Windows ARM binary smoke check
+         shell: pwsh
+         run: |
+-          $version = (& "release-assets/windows-arm64/aiwiki-toolkit.exe" --version).Trim()
+-          if ($version -ne "${{ steps.release.outputs.package_version }}") {
+-            throw "Expected version ${{ steps.release.outputs.package_version }} but binary returned $version."
++          $versionOutput = (& "release-assets/windows-arm64/aiwiki-toolkit.exe" --version).Trim()
++          $expectedVersionOutput = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"
++          if ($versionOutput -ne $expectedVersionOutput) {
++            throw "Expected version output '$expectedVersionOutput' but binary returned '$versionOutput'."
+           }
+ 
+   npm-smoke:
+@@ -148,7 +149,8 @@ jobs:
+       - name: Run npm-installed Windows ARM smoke check
+         shell: pwsh
+         run: |
+-          $version = (& aiwiki-toolkit --version).Trim()
+-          if ($version -ne "${{ steps.release.outputs.package_version }}") {
+-            throw "Expected version ${{ steps.release.outputs.package_version }} but npm-installed binary returned $version."
++          $versionOutput = (& aiwiki-toolkit --version).Trim()
++          $expectedVersionOutput = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"
++          if ($versionOutput -ne $expectedVersionOutput) {
++            throw "Expected version output '$expectedVersionOutput' but npm-installed binary returned '$versionOutput'."
+           }
+diff --git a/tests/test_release_smoke_workflow.py b/tests/test_release_smoke_workflow.py
+index 79b9a06..36db635 100644
+--- a/tests/test_release_smoke_workflow.py
++++ b/tests/test_release_smoke_workflow.py
+@@ -26,5 +26,7 @@ def test_release_smoke_workflow_checks_release_archive_and_npm_install() -> None
+     assert 'gh release download "${{ steps.release.outputs.release_tag }}" --pattern "ai-wiki-toolkit-${{ steps.release.outputs.release_tag }}-windows-arm64.zip"' in workflow
+     assert 'Expand-Archive -Path $archive -DestinationPath $destination' in workflow
+     assert '& "release-assets/windows-arm64/aiwiki-toolkit.exe" --version' in workflow
++    assert '$expectedVersionOutput = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"' in workflow
++    assert 'if ($versionOutput -ne $expectedVersionOutput)' in workflow
+     assert 'npm install -g "ai-wiki-toolkit@$version"' in workflow
+     assert '& aiwiki-toolkit --version' in workflow

@@ -1,0 +1,10 @@
+ M README.md
+ M docs/doctor-proposal.md
+ M src/ai_wiki_toolkit/content.py
+ M src/ai_wiki_toolkit/doctor.py
+ M src/ai_wiki_toolkit/scaffold.py
+ M src/ai_wiki_toolkit/wiki_schema.py
+ M tests/test_doctor.py
+ M tests/test_init_scenarios.py
+ M tests/test_install_uninstall_scenarios.py
+ M tests/test_wiki_schema.py

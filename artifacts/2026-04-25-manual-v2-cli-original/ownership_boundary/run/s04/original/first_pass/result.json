@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "slot": "s04",
+  "variant": "aiwiki_linked_consolidated_only",
+  "prompt_level": "original",
+  "phase": "first_pass",
+  "workspace": "<eval-root>/ownership_boundary/workspaces/20260425-115832/slots/s04",
+  "captured_at": "2026-04-25T12:29:27",
+  "attempt": 1,
+  "human_nudges": 0,
+  "first_pass_success": null,
+  "changed_files": [
+    "CONTRIBUTING.md",
+    "ai-wiki/people/eval-user/drafts/contributor-pr-flow-helper-enforces-dated-branch-names.md",
+    "scripts/pr_flow.py",
+    "src/ai_wiki_toolkit/pr_flow.py",
+    "tests/test_pr_flow.py"
+  ],
+  "untracked_files": [
+    "ai-wiki/people/eval-user/drafts/contributor-pr-flow-helper-enforces-dated-branch-names.md",
+    "scripts/pr_flow.py",
+    "src/ai_wiki_toolkit/pr_flow.py",
+    "tests/test_pr_flow.py"
+  ],
+  "notes": "Captured by run_cli_slots.py; Codex CLI return code: 0. Run-level sleep guard metadata is in sleep_guard.json."
+}

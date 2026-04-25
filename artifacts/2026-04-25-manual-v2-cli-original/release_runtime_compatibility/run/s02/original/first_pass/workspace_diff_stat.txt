@@ -1,0 +1,15 @@
+ .github/workflows/publish-npm.yml      |  4 +++
+ .github/workflows/release-binaries.yml | 53 +++++++++++++++++++++++++++++++++-
+ docs/npm-publish.md                    | 16 ++++++----
+ docs/npm-wrapper.md                    |  6 ++--
+ docs/releasing.md                      | 21 +++++++++-----
+ tests/test_distribution_metadata.py    | 37 ++++++++++++++++++++++++
+ 6 files changed, 120 insertions(+), 17 deletions(-)
+ /dev/null => ai-wiki/metrics/reuse-events/bochengyin.jsonl | 5 +++++
+ 1 file changed, 5 insertions(+)
+ /dev/null => ai-wiki/metrics/task-checks/bochengyin.jsonl | 1 +
+ 1 file changed, 1 insertion(+)
+ ...tibility-needs-bookworm-smoke-before-publish.md | 36 ++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
+ /dev/null => scripts/smoke_npm_linux_install.sh | 55 +++++++++++++++++++++++++
+ 1 file changed, 55 insertions(+)

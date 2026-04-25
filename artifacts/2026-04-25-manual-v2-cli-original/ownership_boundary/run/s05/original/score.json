@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "slot": "s05",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "ownership_boundary_runbook:Success"
+  ],
+  "evidence": [
+    "s05/original/first_pass/workspace_diff.patch",
+    "s05/original/first_pass/final_message.md",
+    "codex_sessions/s05/visible_transcript.md"
+  ],
+  "notes": "Success for primary AI wiki ambient condition: implemented repo-local scripts/pr_flow.py, added tests/test_pr_flow.py, updated CONTRIBUTING.md and ai-wiki/workflows.md, and did not add src/ai_wiki_toolkit implementation or package CLI wiring.",
+  "scored_at": "2026-04-25T12:40:08"
+}

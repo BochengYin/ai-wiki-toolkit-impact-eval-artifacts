@@ -1,0 +1,631 @@
+diff --git a/.github/workflows/publish-npm.yml b/.github/workflows/publish-npm.yml
+index c259fec..1f1eb57 100644
+--- a/.github/workflows/publish-npm.yml
++++ b/.github/workflows/publish-npm.yml
+@@ -104,6 +104,17 @@ jobs:
+           --asset-dir release-assets
+           --output-dir build/npm-platform-packages
+ 
++      - name: Smoke staged Linux npm binary in runtime container
++        shell: bash
++        run: |
++          version="$(node -p "require('./package.json').version")"
++          linux_package="$(node -p "require('./npm/platform-targets.json')['linux-x64'].package_name")"
++          binary_name="$(node -p "require('./npm/platform-targets.json')['linux-x64'].binary_name")"
++          python scripts/check_linux_runtime_matrix.py \
++            --binary "build/npm-platform-packages/${linux_package}/bin/${binary_name}" \
++            --expected-output "ai-wiki-toolkit ${version}" \
++            --image node:24-bookworm
++
+       - name: Show platform package contents
+         shell: bash
+         run: |
+diff --git a/.github/workflows/release-binaries.yml b/.github/workflows/release-binaries.yml
+index cb20e84..6a1fe57 100644
+--- a/.github/workflows/release-binaries.yml
++++ b/.github/workflows/release-binaries.yml
+@@ -58,7 +58,15 @@ jobs:
+       - name: Run test suite
+         run: python -m pytest
+ 
++      - name: Build Linux standalone binary on glibc baseline
++        if: ${{ matrix.target == 'linux-x64' }}
++        run: >
++          python scripts/build_linux_release_in_container.py
++          --image python:3.11-bullseye
++          --platform linux/amd64
++
+       - name: Build standalone binary
++        if: ${{ matrix.target != 'linux-x64' }}
+         run: >
+           python -m PyInstaller
+           --clean
+@@ -69,6 +77,16 @@ jobs:
+           --specpath build/pyinstaller
+           src/ai_wiki_toolkit/cli.py
+ 
++      - name: Smoke Linux binary in runtime containers
++        if: ${{ matrix.target == 'linux-x64' }}
++        shell: bash
++        run: |
++          python scripts/check_linux_runtime_matrix.py \
++            --binary "${{ matrix.binary_path }}" \
++            --expected-output "ai-wiki-toolkit ${GITHUB_REF_NAME#v}" \
++            --image debian:bullseye-slim \
++            --image node:24-bookworm
++
+       - name: Package release archive
+         run: >
+           python scripts/build_release_archive.py
+diff --git a/docs/npm-publish.md b/docs/npm-publish.md
+index 99193fd..3b57aab 100644
+--- a/docs/npm-publish.md
++++ b/docs/npm-publish.md
+@@ -10,9 +10,10 @@ The npm publish flow uses a meta package plus platform-specific binary packages.
+ 2. GitHub Release assets are uploaded
+ 3. `Publish npm Package` runs after the release workflow completes successfully
+ 4. the workflow stages one npm platform package per release target
+-5. the workflow publishes those platform packages first
+-6. the workflow publishes the `ai-wiki-toolkit` meta package last
+-7. npm users can install with:
++5. the workflow runs the staged Linux binary in a clean `node:24-bookworm` container
++6. the workflow publishes those platform packages first
++7. the workflow publishes the `ai-wiki-toolkit` meta package last
++8. npm users can install with:
+ 
+    ```bash
+    npm install -g ai-wiki-toolkit
+@@ -77,12 +78,15 @@ The workflow:
+    - token-based publish when `NPM_PUBLISH_TOKEN` is present
+ 5. downloads the matching GitHub Release archives
+ 6. stages the platform npm packages from those archives
+-7. publishes the platform npm packages
+-8. runs `npm pack --dry-run --ignore-scripts` for the meta package
+-9. publishes the meta package when requested
++7. runs `aiwiki-toolkit --version` from the staged Linux package in `node:24-bookworm`
++8. publishes the platform npm packages
++9. runs `npm pack --dry-run --ignore-scripts` for the meta package
++10. publishes the meta package when requested
+ 
+ Before enabling `NPM_PUBLISH_ENABLED`, make sure the npm platform target map only advertises targets that the `Release Binaries` workflow actually publishes.
+ 
++The `node:24-bookworm` smoke check is intentionally before any `npm publish` command. A successful package install is not enough for Linux; the staged executable must start and print the expected version inside the runtime image.
++
+ The meta package is published from `package.json` in this repository, so its version must stay in sync with:
+ 
+ - `package.json`
+diff --git a/docs/npm-wrapper.md b/docs/npm-wrapper.md
+index 1e5947e..06ee3b2 100644
+--- a/docs/npm-wrapper.md
++++ b/docs/npm-wrapper.md
+@@ -82,3 +82,4 @@ The published npm package should continue to satisfy these constraints:
+ - the npm platform target map matches the current public release asset matrix
+ - the npm package version always matches the Python package version
+ - npm trusted publishing is configured for the package
++- the staged Linux package binary runs successfully in `node:24-bookworm` before npm publish
+diff --git a/docs/releasing.md b/docs/releasing.md
+index afc284f..44d34d0 100644
+--- a/docs/releasing.md
++++ b/docs/releasing.md
+@@ -10,11 +10,13 @@ The repository now includes a GitHub Actions workflow at `.github/workflows/rele
+ 2. installs the project with the `release` dependency group
+ 3. runs the test suite
+ 4. builds standalone binaries with PyInstaller
+-5. archives each binary into a release asset
+-6. renders a Homebrew formula from the release archives
+-7. creates or updates a GitHub Release for the tag
+-8. optionally syncs the generated formula into a Homebrew tap repository
+-9. uploads the built archives and generated formula as release assets
++5. builds `linux-x64` inside `python:3.11-bullseye` so the binary is linked against an older glibc baseline
++6. runs the Linux binary in runtime containers, including `node:24-bookworm`, before packaging it
++7. archives each binary into a release asset
++8. renders a Homebrew formula from the release archives
++9. creates or updates a GitHub Release for the tag
++10. optionally syncs the generated formula into a Homebrew tap repository
++11. uploads the built archives and generated formula as release assets
+ 
+ This workflow is the base distribution layer for later package-manager integrations such as Homebrew and npm platform packages.
+ 
+@@ -30,6 +32,8 @@ Windows packaging remains implemented in the codebase, but it is currently exclu
+ 
+ The target labels map to GitHub-hosted runners and determine the release asset names.
+ 
++For `linux-x64`, the runner still orchestrates the job, but the PyInstaller build runs in a Docker container using `python:3.11-bullseye`. The workflow then executes `aiwiki-toolkit --version` from the built binary in `debian:bullseye-slim` and `node:24-bookworm` containers. This catches Python shared library and GLIBC runtime errors before the asset can be uploaded or consumed by npm.
++
+ ## Asset Naming
+ 
+ Each archive is named like this:
+@@ -83,6 +87,13 @@ python -m PyInstaller --clean --noconfirm --onefile --name aiwiki-toolkit --path
+ python scripts/build_release_archive.py --binary dist/aiwiki-toolkit --version v0.1.0 --target linux-x64 --output-dir release-assets
+ ```
+ 
++For the Linux release path, use the same containerized build and runtime smoke checks as CI:
++
++```bash
++python scripts/build_linux_release_in_container.py --image python:3.11-bullseye --platform linux/amd64
++python scripts/check_linux_runtime_matrix.py --binary dist/aiwiki-toolkit --expected-output "ai-wiki-toolkit 0.1.0"
++```
++
+ Windows local dry runs can still be performed manually with `--binary dist/aiwiki-toolkit.exe --target windows-x64`, but that target is not part of the automated public release matrix yet.
+ 
+ ## Next Distribution Layers
+diff --git a/tests/test_distribution_metadata.py b/tests/test_distribution_metadata.py
+index 647ce66..183cc38 100644
+--- a/tests/test_distribution_metadata.py
++++ b/tests/test_distribution_metadata.py
+@@ -54,3 +54,32 @@ def test_release_workflow_passes_license_into_generated_homebrew_formula() -> No
+     )
+ 
+     assert "--license MIT" in workflow
++
++
++def test_release_workflow_builds_linux_on_glibc_baseline_before_packaging() -> None:
++    workflow = (ROOT / ".github" / "workflows" / "release-binaries.yml").read_text(
++        encoding="utf-8"
++    )
++
++    assert "Build Linux standalone binary on glibc baseline" in workflow
++    assert "python scripts/build_linux_release_in_container.py" in workflow
++    assert "--image python:3.11-bullseye" in workflow
++    assert "--platform linux/amd64" in workflow
++
++    smoke_index = workflow.index("Smoke Linux binary in runtime containers")
++    package_index = workflow.index("Package release archive")
++    assert smoke_index < package_index
++    assert "--image debian:bullseye-slim" in workflow
++    assert "--image node:24-bookworm" in workflow
++
++
++def test_npm_publish_workflow_smokes_staged_linux_binary_before_publish() -> None:
++    workflow = (ROOT / ".github" / "workflows" / "publish-npm.yml").read_text(
++        encoding="utf-8"
++    )
++
++    smoke_index = workflow.index("Smoke staged Linux npm binary in runtime container")
++    publish_index = workflow.index("Publish platform npm packages")
++    assert smoke_index < publish_index
++    assert "python scripts/check_linux_runtime_matrix.py" in workflow
++    assert "--image node:24-bookworm" in workflow
+diff --git a/ai-wiki/_toolkit/metrics/document-stats.json b/ai-wiki/_toolkit/metrics/document-stats.json
+new file mode 100644
+index 0000000..4f02ab8
+--- /dev/null
++++ b/ai-wiki/_toolkit/metrics/document-stats.json
+@@ -0,0 +1,78 @@
++{
++  "documents": {
++    "constraints": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "conventions/distribution-target-matrix-must-match-published-assets": {
++      "effective_reuse_count": 1,
++      "last_effective_at": "2026-04-25T17:23:28+10:00",
++      "last_observed_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 1,
++      "preloaded_reuse_count": 0,
++      "total_events": 1
++    },
++    "conventions/index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "decisions": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "problems/index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "problems/linux-release-binaries-need-runtime-checks-against-an-older-glibc-baseline": {
++      "effective_reuse_count": 1,
++      "last_effective_at": "2026-04-25T17:23:28+10:00",
++      "last_observed_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 1,
++      "preloaded_reuse_count": 0,
++      "total_events": 1
++    },
++    "review-patterns/index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "workflows": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    }
++  },
++  "schema_version": "reuse-v1",
++  "skipped_event_lines": 0
++}
+diff --git a/ai-wiki/_toolkit/metrics/task-stats.json b/ai-wiki/_toolkit/metrics/task-stats.json
+new file mode 100644
+index 0000000..a8f3f0c
+--- /dev/null
++++ b/ai-wiki/_toolkit/metrics/task-stats.json
+@@ -0,0 +1,26 @@
++{
++  "schema_version": "reuse-v1",
++  "skipped_check_lines": 0,
++  "skipped_event_lines": 0,
++  "summary": {
++    "checked_tasks": 1,
++    "tasks_with_events_but_no_check": 0,
++    "tasks_with_wiki_use": 1,
++    "tasks_without_wiki_use": 0
++  },
++  "tasks": {
++    "release-runtime-compatibility-2026-04-25": {
++      "check_count": 1,
++      "effective_reuse_count": 2,
++      "estimated_seconds_saved": 0,
++      "estimated_token_savings": 0,
++      "last_check_outcome": "wiki_used",
++      "last_checked_at": "2026-04-25T17:23:28+10:00",
++      "lookup_reuse_count": 2,
++      "preloaded_reuse_count": 7,
++      "reuse_checked": true,
++      "reused_docs": 9,
++      "total_events": 9
++    }
++  }
++}
+diff --git a/ai-wiki/metrics/reuse-events/eval-user.jsonl b/ai-wiki/metrics/reuse-events/eval-user.jsonl
+new file mode 100644
+index 0000000..2391df4
+--- /dev/null
++++ b/ai-wiki/metrics/reuse-events/eval-user.jsonl
+@@ -0,0 +1,9 @@
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "index", "doc_kind": "repo_index", "event_id": "evt_68157777076d", "evidence_mode": "explicit", "model": "unknown", "notes": "Used as the repo-owned map for relevant AI wiki areas.", "observed_at": "2026-04-25T17:23:28+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["repo_map"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "constraints", "doc_kind": "constraints", "event_id": "evt_63d6453c66d6", "evidence_mode": "explicit", "model": "unknown", "notes": "Kept release-facing tests and no-touch user-owned content constraints in mind.", "observed_at": "2026-04-25T17:23:28+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["preserved_contract"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "conventions/index", "doc_kind": "convention_index", "event_id": "evt_64cff8a7f559", "evidence_mode": "explicit", "model": "unknown", "notes": "Routed to the distribution target matrix convention.", "observed_at": "2026-04-25T17:23:28+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["routed_to_convention"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "conventions/distribution-target-matrix-must-match-published-assets", "doc_kind": "convention", "event_id": "evt_c4938f4da450", "evidence_mode": "explicit", "model": "unknown", "notes": "Kept workflow, npm staging, docs, and smoke checks aligned for linux-x64.", "observed_at": "2026-04-25T17:23:28+10:00", "retrieval_mode": "lookup", "reuse_effects": ["aligned_release_matrix"], "reuse_outcome": "resolved", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "decisions", "doc_kind": "decisions", "event_id": "evt_47139a6314f4", "evidence_mode": "explicit", "model": "unknown", "notes": "Consulted during the standard start path; no release-specific decision changed the implementation.", "observed_at": "2026-04-25T17:23:28+10:00", "retrieval_mode": "preloaded", "reuse_outcome": "not_helpful", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "review-patterns/index", "doc_kind": "review_pattern_index", "event_id": "evt_313b53794aae", "evidence_mode": "explicit", "model": "unknown", "notes": "Consulted during the standard start path; no review pattern applied.", "observed_at": "2026-04-25T17:23:28+10:00", "retrieval_mode": "preloaded", "reuse_outcome": "not_helpful", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "problems/index", "doc_kind": "problem_index", "event_id": "evt_d69647169ff7", "evidence_mode": "explicit", "model": "unknown", "notes": "Identified the Linux glibc runtime compatibility problem note.", "observed_at": "2026-04-25T17:23:28+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["routed_to_problem_memory"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "problems/linux-release-binaries-need-runtime-checks-against-an-older-glibc-baseline", "doc_kind": "problem", "event_id": "evt_6f85ee5f1b06", "evidence_mode": "explicit", "model": "unknown", "notes": "Drove the older glibc container build and real runtime container version checks.", "observed_at": "2026-04-25T17:23:28+10:00", "retrieval_mode": "lookup", "reuse_effects": ["changed_plan", "avoided_incomplete_smoke"], "reuse_outcome": "resolved", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "workflows", "doc_kind": "workflows", "event_id": "evt_5aeb05a53aaa", "evidence_mode": "explicit", "model": "unknown", "notes": "Prompted topic branch use and local verification commands.", "observed_at": "2026-04-25T17:23:28+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["followed_repo_workflow"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
+diff --git a/ai-wiki/metrics/task-checks/eval-user.jsonl b/ai-wiki/metrics/task-checks/eval-user.jsonl
+new file mode 100644
+index 0000000..f69bfdb
+--- /dev/null
++++ b/ai-wiki/metrics/task-checks/eval-user.jsonl
+@@ -0,0 +1 @@
++{"agent_name": "codex", "author_handle": "eval-user", "check_id": "chk_d0a40dd4bf3b", "check_outcome": "wiki_used", "checked_at": "2026-04-25T17:23:28+10:00", "model": "unknown", "notes": "Used project release/distribution AI wiki guidance and the existing Linux glibc problem memory.", "schema_version": "reuse-v1", "task_id": "release-runtime-compatibility-2026-04-25"}
+diff --git a/scripts/build_linux_release_in_container.py b/scripts/build_linux_release_in_container.py
+new file mode 100644
+index 0000000..170e38a
+--- /dev/null
++++ b/scripts/build_linux_release_in_container.py
+@@ -0,0 +1,112 @@
++"""Build the Linux release binary inside an older glibc container."""
++
++from __future__ import annotations
++
++import argparse
++import os
++from pathlib import Path
++import subprocess
++
++DEFAULT_IMAGE = "python:3.11-bullseye"
++DEFAULT_PLATFORM = "linux/amd64"
++CONTAINER_WORKDIR = "/work"
++
++
++def pyinstaller_shell_script() -> str:
++    return "\n".join(
++        [
++            "set -euo pipefail",
++            "python -m venv /tmp/aiwiki-toolkit-release-venv",
++            ". /tmp/aiwiki-toolkit-release-venv/bin/activate",
++            "python -m pip install --upgrade pip",
++            'python -m pip install ".[release]"',
++            "python -m PyInstaller "
++            "--clean "
++            "--noconfirm "
++            "--onefile "
++            "--name aiwiki-toolkit "
++            "--paths src "
++            "--specpath build/pyinstaller "
++            "src/ai_wiki_toolkit/cli.py",
++        ]
++    )
++
++
++def default_docker_user() -> str | None:
++    if os.name != "posix":
++        return None
++    return f"{os.getuid()}:{os.getgid()}"
++
++
++def docker_build_command(
++    repo_dir: Path,
++    *,
++    image: str = DEFAULT_IMAGE,
++    platform: str = DEFAULT_PLATFORM,
++    user: str | None = None,
++) -> list[str]:
++    command = [
++        "docker",
++        "run",
++        "--rm",
++        "--platform",
++        platform,
++        "-e",
++        "HOME=/tmp/aiwiki-toolkit-home",
++        "-v",
++        f"{repo_dir.resolve()}:{CONTAINER_WORKDIR}",
++        "-w",
++        CONTAINER_WORKDIR,
++    ]
++    if user:
++        command.extend(["--user", user])
++    command.extend([image, "bash", "-lc", pyinstaller_shell_script()])
++    return command
++
++
++def parse_args() -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "--repo-dir",
++        type=Path,
++        default=Path.cwd(),
++        help="Repository root to mount into the build container.",
++    )
++    parser.add_argument(
++        "--image",
++        default=DEFAULT_IMAGE,
++        help=f"Container image used for the Linux build. Defaults to {DEFAULT_IMAGE}.",
++    )
++    parser.add_argument(
++        "--platform",
++        default=DEFAULT_PLATFORM,
++        help=f"Docker platform used for the build. Defaults to {DEFAULT_PLATFORM}.",
++    )
++    parser.add_argument(
++        "--docker-user",
++        default=default_docker_user(),
++        help="UID:GID passed to docker run. Use an empty string to run as the image default user.",
++    )
++    return parser.parse_args()
++
++
++def main() -> None:
++    args = parse_args()
++    repo_dir = args.repo_dir.resolve()
++    if not (repo_dir / "pyproject.toml").exists():
++        raise SystemExit(f"Repository root does not contain pyproject.toml: {repo_dir}")
++
++    user = args.docker_user or None
++    subprocess.run(
++        docker_build_command(
++            repo_dir=repo_dir,
++            image=args.image,
++            platform=args.platform,
++            user=user,
++        ),
++        check=True,
++    )
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/scripts/check_linux_runtime_matrix.py b/scripts/check_linux_runtime_matrix.py
+new file mode 100644
+index 0000000..0d6c245
+--- /dev/null
++++ b/scripts/check_linux_runtime_matrix.py
+@@ -0,0 +1,112 @@
++"""Run the Linux release binary in runtime containers before publishing."""
++
++from __future__ import annotations
++
++import argparse
++from pathlib import Path
++import subprocess
++import sys
++
++DEFAULT_IMAGES = ("debian:bullseye-slim", "node:24-bookworm")
++DEFAULT_PLATFORM = "linux/amd64"
++CONTAINER_BINARY_PATH = "/usr/local/bin/aiwiki-toolkit"
++
++
++def docker_runtime_command(
++    binary_path: Path,
++    *,
++    image: str,
++    platform: str = DEFAULT_PLATFORM,
++) -> list[str]:
++    return [
++        "docker",
++        "run",
++        "--rm",
++        "--platform",
++        platform,
++        "-v",
++        f"{binary_path.resolve()}:{CONTAINER_BINARY_PATH}:ro",
++        image,
++        CONTAINER_BINARY_PATH,
++        "--version",
++    ]
++
++
++def check_runtime_image(
++    binary_path: Path,
++    *,
++    image: str,
++    expected_output: str,
++    platform: str = DEFAULT_PLATFORM,
++) -> None:
++    result = subprocess.run(
++        docker_runtime_command(binary_path, image=image, platform=platform),
++        capture_output=True,
++        text=True,
++        check=False,
++    )
++    if result.returncode != 0:
++        if result.stdout:
++            print(result.stdout, end="", file=sys.stderr)
++        if result.stderr:
++            print(result.stderr, end="", file=sys.stderr)
++        raise SystemExit(
++            f"{binary_path} failed in {image} with exit code {result.returncode}"
++        )
++
++    output = result.stdout.strip()
++    if output != expected_output:
++        raise SystemExit(
++            f"{binary_path} printed {output!r} in {image}; expected {expected_output!r}"
++        )
++
++
++def parse_args() -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "--binary",
++        type=Path,
++        required=True,
++        help="Linux executable to mount into each runtime container.",
++    )
++    parser.add_argument(
++        "--expected-output",
++        required=True,
++        help="Exact stdout expected from aiwiki-toolkit --version.",
++    )
++    parser.add_argument(
++        "--image",
++        action="append",
++        dest="images",
++        help=(
++            "Runtime container image to check. May be passed multiple times. "
++            f"Defaults to {', '.join(DEFAULT_IMAGES)}."
++        ),
++    )
++    parser.add_argument(
++        "--platform",
++        default=DEFAULT_PLATFORM,
++        help=f"Docker platform used for each runtime check. Defaults to {DEFAULT_PLATFORM}.",
++    )
++    return parser.parse_args()
++
++
++def main() -> None:
++    args = parse_args()
++    binary_path = args.binary.resolve()
++    if not binary_path.exists():
++        raise SystemExit(f"Binary does not exist: {binary_path}")
++
++    images = tuple(args.images or DEFAULT_IMAGES)
++    for image in images:
++        check_runtime_image(
++            binary_path,
++            image=image,
++            expected_output=args.expected_output,
++            platform=args.platform,
++        )
++        print(f"{image}: ok")
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/tests/test_linux_runtime_release_scripts.py b/tests/test_linux_runtime_release_scripts.py
+new file mode 100644
+index 0000000..1b9a8e0
+--- /dev/null
++++ b/tests/test_linux_runtime_release_scripts.py
+@@ -0,0 +1,63 @@
++from __future__ import annotations
++
++import importlib.util
++from pathlib import Path
++from types import ModuleType
++
++ROOT = Path(__file__).resolve().parents[1]
++
++
++def _load_script(name: str) -> ModuleType:
++    script_path = ROOT / "scripts" / f"{name}.py"
++    spec = importlib.util.spec_from_file_location(name, script_path)
++    assert spec is not None
++    assert spec.loader is not None
++    module = importlib.util.module_from_spec(spec)
++    spec.loader.exec_module(module)
++    return module
++
++
++def test_linux_build_script_uses_containerized_pyinstaller_baseline(tmp_path: Path) -> None:
++    script = _load_script("build_linux_release_in_container")
++
++    command = script.docker_build_command(
++        tmp_path,
++        image="python:3.11-bullseye",
++        platform="linux/amd64",
++        user="1000:1000",
++    )
++
++    assert command[:5] == ["docker", "run", "--rm", "--platform", "linux/amd64"]
++    assert command[command.index("-v") + 1] == f"{tmp_path.resolve()}:/work"
++    assert command[command.index("--user") + 1] == "1000:1000"
++    assert "python:3.11-bullseye" in command
++    assert "python -m PyInstaller" in command[-1]
++    assert 'python -m pip install ".[release]"' in command[-1]
++
++
++def test_linux_runtime_script_mounts_binary_into_runtime_container(tmp_path: Path) -> None:
++    script = _load_script("check_linux_runtime_matrix")
++    binary_path = tmp_path / "aiwiki-toolkit"
++    binary_path.touch()
++
++    command = script.docker_runtime_command(
++        binary_path,
++        image="node:24-bookworm",
++        platform="linux/amd64",
++    )
++
++    assert command[:5] == ["docker", "run", "--rm", "--platform", "linux/amd64"]
++    assert command[command.index("-v") + 1] == (
++        f"{binary_path.resolve()}:/usr/local/bin/aiwiki-toolkit:ro"
++    )
++    assert command[-3:] == [
++        "node:24-bookworm",
++        "/usr/local/bin/aiwiki-toolkit",
++        "--version",
++    ]
++
++
++def test_linux_runtime_script_checks_older_and_current_runtime_images() -> None:
++    script = _load_script("check_linux_runtime_matrix")
++
++    assert script.DEFAULT_IMAGES == ("debian:bullseye-slim", "node:24-bookworm")

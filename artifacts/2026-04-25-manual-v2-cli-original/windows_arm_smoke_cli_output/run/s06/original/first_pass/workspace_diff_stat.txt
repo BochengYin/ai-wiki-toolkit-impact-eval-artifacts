@@ -1,0 +1,5 @@
+ .github/workflows/release-smoke-windows-arm.yml | 10 ++++++----
+ tests/test_release_smoke_workflow.py            | 15 +++++++++++++++
+ 2 files changed, 21 insertions(+), 4 deletions(-)
+ ...e-smoke-version-checks-must-match-cli-output.md | 32 ++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)

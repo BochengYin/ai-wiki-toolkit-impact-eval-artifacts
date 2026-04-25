@@ -1,0 +1,11 @@
+{
+  "slot": "s05",
+  "variant": "aiwiki_ambient_memory_workflow",
+  "prompt_level": "original",
+  "workspace": "<eval-root>/ownership_boundary/workspaces/20260425-115832/slots/s05",
+  "final_message": "<eval-root>/ownership_boundary/runs/cli-original-ownership-20260425-1158/s05/original/first_pass/final_message.md",
+  "codex_returncode": 0,
+  "save_result_returncode": 0,
+  "started_at": "2026-04-25T12:29:27",
+  "finished_at": "2026-04-25T12:37:58"
+}

@@ -1,0 +1,19 @@
+ .github/workflows/publish-npm.yml      | 28 ++++++++++++++++++++++
+ .github/workflows/release-binaries.yml | 20 +++++++++++++++-
+ docs/npm-publish.md                    | 31 +++++++++++++++++++-----
+ docs/npm-wrapper.md                    |  6 +++--
+ docs/releasing.md                      | 25 ++++++++++++-------
+ tests/test_distribution_metadata.py    | 44 ++++++++++++++++++++++++++++++----
+ 6 files changed, 132 insertions(+), 22 deletions(-)
+ .../_toolkit/metrics/document-stats.json           | 94 ++++++++++++++++++++++
+ 1 file changed, 94 insertions(+)
+ .../_toolkit/metrics/task-stats.json               | 26 ++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+ /dev/null => ai-wiki/metrics/reuse-events/eval-user.jsonl | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+ /dev/null => ai-wiki/metrics/task-checks/eval-user.jsonl | 1 +
+ 1 file changed, 1 insertion(+)
+ ...binaries-need-target-container-runtime-smoke.md | 44 ++++++++++++++++++++++
+ 1 file changed, 44 insertions(+)
+ /dev/null => ai-wiki/people/eval-user/index.md | 8 ++++++++
+ 1 file changed, 8 insertions(+)

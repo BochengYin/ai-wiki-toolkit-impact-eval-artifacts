@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s03",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/scaffold_prompt_workflow_compliance/spec.toml",
+    "evals/impact/prompts/scaffold_prompt_workflow_compliance/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Implemented the full team-memory scaffold with correct areas and skills, managed schema, prompt guidance, doctor/catalog/docs/tests, and preserved user-owned boundaries.",
+  "scored_at": "2026-04-25T19:40:59"
+}

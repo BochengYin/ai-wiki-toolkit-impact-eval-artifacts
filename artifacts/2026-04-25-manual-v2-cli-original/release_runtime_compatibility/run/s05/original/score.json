@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s05",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/release_runtime_compatibility/spec.toml",
+    "evals/impact/prompts/release_runtime_compatibility/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Moved linux-x64 build to ubuntu-22.04, added ubuntu:22.04 and node:24-bookworm release runtime smoke before upload, added node:24-bookworm npm install smoke before publish, and updated docs/tests.",
+  "scored_at": "2026-04-25T19:40:59"
+}

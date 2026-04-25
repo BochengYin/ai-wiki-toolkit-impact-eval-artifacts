@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s04",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/release_runtime_compatibility/spec.toml",
+    "evals/impact/prompts/release_runtime_compatibility/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Built linux-x64 on python:3.11-bullseye, ran runtime checks in debian:bullseye-slim and node:24-bookworm, added npm pre-publish smoke, helper scripts, docs, and tests.",
+  "scored_at": "2026-04-25T19:40:59"
+}

@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "slot": "s06",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/release_distribution_integrity_runbook.md"
+  ],
+  "evidence": [
+    "<eval-root>/release_distribution_integrity/runs/cli-original-release-20260425-1246/s06/original/first_pass/workspace_diff.patch",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s06/019dc2f3-732d-7121-9d3b-2353c0cbd285/visible_transcript.md",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s06/019dc2f3-732d-7121-9d3b-2353c0cbd285/visible_session.jsonl"
+  ],
+  "notes": "Supplemental s06 diagnostic. It aligned workflow matrix, npm target metadata and libc selection, Windows zip staging, docs, Homebrew, and release-facing tests/checks; verification passed with pytest, npm pack dry run, release version check, and workflow YAML parse. Slot used external official/current references, so that is noted as a minor interpretive validity threat rather than a critical confound.",
+  "scored_at": "2026-04-25T14:59:20"
+}

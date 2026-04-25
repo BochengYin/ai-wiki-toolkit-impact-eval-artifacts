@@ -1,0 +1,1231 @@
+diff --git a/README.md b/README.md
+index ec7cb95..951561e 100644
+--- a/README.md
++++ b/README.md
+@@ -43,7 +43,7 @@ Instead of trying to solve the problem with a server, embeddings, or hidden stat
+ - repo-local AI wiki files
+ - home-level cross-project AI wiki files
+ - managed prompt blocks
+-- repo-local Codex skills for repeatable end-of-task reuse and update checks
++- repo-local Codex skills for clarification, PR review learning, and repeatable end-of-task checks
+ 
+ That gives the repo and the user a stable Markdown place to accumulate knowledge without turning the package into a knowledge platform.
+ 
+@@ -66,7 +66,7 @@ That is why the installer manages both wiki files and prompt wiring together:
+ 
+ - `ai-wiki/` and `~/ai-wiki/system/` hold the durable Markdown memory
+ - `AGENT.md`, `AGENTS.md`, or `CLAUDE.md` tell the agent to read that memory and follow the workflow
+-- `.agents/skills/ai-wiki-reuse-check/` and `.agents/skills/ai-wiki-update-check/` provide repeatable end-of-task checks for Codex-style agent runs
++- `.agents/skills/ai-wiki-clarify-coding-task/`, `.agents/skills/ai-wiki-pr-review-learning/`, `.agents/skills/ai-wiki-reuse-check/`, and `.agents/skills/ai-wiki-update-check/` provide repeatable Codex-style workflows for clarification, PR review learning, and end-of-task checks
+ 
+ ## Prompt File Integration
+ 
+@@ -85,7 +85,7 @@ If none of those files exist yet, the toolkit creates `AGENT.md` as a generic de
+ 
+ The AI wiki structure is deliberately inspired by how `SKILL.md` files work well: keep a small stable entrypoint, then fan out into focused references.
+ 
+-Each wiki namespace starts with an `index.md` and then links to narrower files such as `constraints.md`, `workflows.md`, `decisions.md`, `review-patterns/`, `trails/`, and personal `drafts/`. That keeps the top-level entrypoint easy for both humans and agents to scan, while still letting the repo accumulate detailed guidance without collapsing into one giant prompt blob.
++Each wiki namespace starts with an `index.md` and then links to narrower files such as `constraints.md`, `conventions/`, `workflows.md`, `decisions.md`, `problem-solutions/`, `features/`, `review-patterns/`, `trails/`, and personal `drafts/`. That keeps the top-level entrypoint easy for both humans and agents to scan, while still letting the repo accumulate detailed guidance without collapsing into one giant prompt blob.
+ 
+ ## Current Scope
+ 
+@@ -94,8 +94,8 @@ The current scope is intentionally strict about compatibility:
+ - initialize the repo and home AI wiki folders
+ - create starter Markdown files only if they do not already exist
+ - create managed `_toolkit/` files that package updates are allowed to refresh
+-- create `review-patterns/` and `people/<handle>/drafts/` scaffolding
+-- create repo-local `.agents/skills/ai-wiki-reuse-check/` and `.agents/skills/ai-wiki-update-check/` skills only when files are missing
++- create `conventions/`, `problem-solutions/`, `features/`, `review-patterns/`, and `people/<handle>/drafts/` scaffolding
++- create repo-local `.agents/skills/ai-wiki-clarify-coding-task/`, `.agents/skills/ai-wiki-pr-review-learning/`, `.agents/skills/ai-wiki-reuse-check/`, and `.agents/skills/ai-wiki-update-check/` skills only when files are missing
+ - update managed instruction blocks inside `AGENT.md`, `AGENTS.md`, and `CLAUDE.md`
+ - avoid rewriting existing user-owned `ai-wiki/**/*.md` documents outside `_toolkit/`
+ 
+@@ -195,6 +195,8 @@ npm install -g ai-wiki-toolkit@latest
+ - Files such as `ai-wiki/index.md`, `ai-wiki/workflows.md`, and other docs you add under `ai-wiki/` are user-owned.
+ - `ai-wiki/_toolkit/index.md` is the managed entrypoint for package-managed repo guidance.
+ - `ai-wiki/_toolkit/workflows.md` carries the managed baseline workflows that package upgrades can refresh.
++- `ai-wiki/_toolkit/schema/team-memory-v1.md` describes the starter shape for conventions, problem-solution notes, and feature working memory.
++- `ai-wiki/conventions/`, `ai-wiki/problem-solutions/`, and `ai-wiki/features/` are repo-local team-memory areas owned by the repository.
+ - Agents should extend user-owned workflow docs instead of editing `_toolkit/**`.
+ 
+ After upgrading the package, refresh the managed layer and then check whether your user-owned repo docs are still aligned with the current recommended structure:
+@@ -234,11 +236,11 @@ aiwiki-toolkit init
+ 
+ - create `ai-wiki/` inside the current repository
+ - create `~/ai-wiki/system/`
+-- create starter indexes such as `ai-wiki/review-patterns/index.md`, `ai-wiki/trails/index.md`, and `ai-wiki/people/<handle>/index.md`
+-- create `ai-wiki/review-patterns/`, `ai-wiki/people/<handle>/drafts/`, `ai-wiki/metrics/`, and repo/home `_toolkit/`
+-- generate package-managed `_toolkit/index.md`, `_toolkit/workflows.md`, `_toolkit/catalog.json`, `_toolkit/schema/reuse-v1.md`, and `_toolkit/metrics/*.json`
++- create starter indexes such as `ai-wiki/conventions/index.md`, `ai-wiki/problem-solutions/index.md`, `ai-wiki/features/index.md`, `ai-wiki/review-patterns/index.md`, `ai-wiki/trails/index.md`, and `ai-wiki/people/<handle>/index.md`
++- create `ai-wiki/conventions/`, `ai-wiki/problem-solutions/`, `ai-wiki/features/`, `ai-wiki/review-patterns/`, `ai-wiki/people/<handle>/drafts/`, `ai-wiki/metrics/`, and repo/home `_toolkit/`
++- generate package-managed `_toolkit/index.md`, `_toolkit/workflows.md`, `_toolkit/catalog.json`, `_toolkit/schema/team-memory-v1.md`, `_toolkit/schema/reuse-v1.md`, and `_toolkit/metrics/*.json`
+ - upsert a managed `.gitignore` block that ignores AI wiki telemetry and generated aggregate snapshots so routine agent use does not dirty `git status`
+-- create `.agents/skills/ai-wiki-reuse-check/` and `.agents/skills/ai-wiki-update-check/` if the repo-local skills do not already exist
++- create `.agents/skills/ai-wiki-clarify-coding-task/`, `.agents/skills/ai-wiki-pr-review-learning/`, `.agents/skills/ai-wiki-reuse-check/`, and `.agents/skills/ai-wiki-update-check/` if the repo-local skills do not already exist
+ - update `AGENT.md`, `AGENTS.md`, and/or `CLAUDE.md` with a managed instruction block that reads `ai-wiki/_toolkit/index.md`
+ 
+ If no supported prompt file exists, it creates `AGENT.md`.
+@@ -308,6 +310,9 @@ This command does not rewrite user-owned repo docs. It prints which paths need a
+ 
+ - `ai-wiki/index.md`
+ - `ai-wiki/workflows.md`
++- `ai-wiki/conventions/index.md`
++- `ai-wiki/problem-solutions/index.md`
++- `ai-wiki/features/index.md`
+ - `ai-wiki/review-patterns/index.md`
+ - `ai-wiki/trails/index.md`
+ - `ai-wiki/people/<handle>/index.md`
+@@ -343,13 +348,13 @@ Even with `--purge-user-docs --yes`, the shared home wiki under `~/ai-wiki/syste
+ 
+ - Existing user-owned `ai-wiki/**/*.md` files are treated as stable data.
+ - `install`/`init` only create missing starter files; they do not merge or overwrite existing user wiki documents.
+-- Starter indexes such as `ai-wiki/index.md`, `review-patterns/index.md`, `trails/index.md`, `people/<handle>/index.md`, and `metrics/index.md` become user-owned once created and are not rewritten by future package updates.
++- Starter indexes such as `ai-wiki/index.md`, `conventions/index.md`, `problem-solutions/index.md`, `features/index.md`, `review-patterns/index.md`, `trails/index.md`, `people/<handle>/index.md`, and `metrics/index.md` become user-owned once created and are not rewritten by future package updates.
+ - `ai-wiki/_toolkit/**` and `~/ai-wiki/system/_toolkit/**` are package-managed and may be refreshed by future versions.
+ - `ai-wiki/workflows.md` remains user-owned; package-managed workflow updates land in `ai-wiki/_toolkit/workflows.md` instead of rewriting the repo-owned file.
+ - `ai-wiki/metrics/reuse-events/<handle>.jsonl` and `ai-wiki/metrics/task-checks/<handle>.jsonl` are user-owned evidence data. Package-managed aggregate views are regenerated under `ai-wiki/_toolkit/metrics/`, and the installer ignores all of those telemetry paths by default in `.gitignore`.
+ - Legacy flat files such as `ai-wiki/metrics/reuse-events.jsonl` and `ai-wiki/metrics/task-checks.jsonl` are still read for compatibility, but new writes should use the handle-sharded layout.
+ - `aiwiki-toolkit doctor --suggest-index-upgrade` prints suggested replacements for outdated repo starter docs, but it does not overwrite them automatically.
+-- `.agents/skills/ai-wiki-reuse-check/**` and `.agents/skills/ai-wiki-update-check/**` are installed as starter scaffolding only. Existing files at those paths are skipped instead of overwritten.
++- `.agents/skills/ai-wiki-clarify-coding-task/**`, `.agents/skills/ai-wiki-pr-review-learning/**`, `.agents/skills/ai-wiki-reuse-check/**`, and `.agents/skills/ai-wiki-update-check/**` are installed as starter scaffolding only. Existing files at those paths are skipped instead of overwritten.
+ - Prompt files are updated only inside the managed block marked by:
+ 
+ ```md
+diff --git a/docs/doctor-proposal.md b/docs/doctor-proposal.md
+index 00538ad..0d0a9e2 100644
+--- a/docs/doctor-proposal.md
++++ b/docs/doctor-proposal.md
+@@ -7,6 +7,9 @@ This document proposes a future `aiwiki-toolkit doctor` command for diagnosing A
+ `ai-wiki-toolkit` now has a clearer navigation shape:
+ 
+ - `ai-wiki/index.md`
++- `ai-wiki/conventions/index.md`
++- `ai-wiki/problem-solutions/index.md`
++- `ai-wiki/features/index.md`
+ - `ai-wiki/review-patterns/index.md`
+ - `ai-wiki/trails/index.md`
+ - `ai-wiki/people/<handle>/index.md`
+@@ -89,6 +92,9 @@ Check whether `ai-wiki/index.md` reflects the current navigation model.
+ Suggested signals:
+ 
+ - mentions `review-patterns/index.md`
++- mentions `conventions/index.md`
++- mentions `problem-solutions/index.md`
++- mentions `features/index.md`
+ - mentions `trails/index.md`
+ - mentions `people/<handle>/index.md`
+ - mentions `metrics/`
+@@ -102,6 +108,9 @@ Example finding:
+ Check for:
+ 
+ - `ai-wiki/review-patterns/index.md`
++- `ai-wiki/conventions/index.md`
++- `ai-wiki/problem-solutions/index.md`
++- `ai-wiki/features/index.md`
+ - `ai-wiki/trails/index.md`
+ - `ai-wiki/metrics/index.md`
+ - `ai-wiki/people/<handle>/index.md` for the resolved handle
+@@ -123,6 +132,9 @@ Suggested checks:
+ 
+ - managed block exists
+ - managed block references `review-patterns/index.md`
++- managed block references `conventions/index.md`
++- managed block references `problem-solutions/index.md`
++- managed block references `features/index.md`
+ - managed block references `people/<handle>/index.md`
+ 
+ This is useful because a repo can end up in a partially upgraded state where prompt wiring expects indexes but the indexes themselves are missing.
+@@ -133,6 +145,7 @@ Check whether `_toolkit/**` exists and is fresh enough to support the newer stru
+ 
+ - `ai-wiki/_toolkit/system.md`
+ - `ai-wiki/_toolkit/catalog.json`
++- `ai-wiki/_toolkit/schema/team-memory-v1.md`
+ - `ai-wiki/_toolkit/schema/reuse-v1.md`
+ 
+ These are package-managed and can safely be refreshed by rerunning:
+@@ -178,6 +191,7 @@ These are package-managed and can be refreshed safely:
+ 
+ - `_toolkit/system.md`
+ - `_toolkit/catalog.json`
++- `_toolkit/schema/team-memory-v1.md`
+ - `_toolkit/schema/reuse-v1.md`
+ 
+ Recommended action:
+@@ -191,6 +205,9 @@ aiwiki-toolkit install
+ These should remain manual in v1:
+ 
+ - `ai-wiki/index.md`
++- `ai-wiki/conventions/index.md`
++- `ai-wiki/problem-solutions/index.md`
++- `ai-wiki/features/index.md`
+ - `ai-wiki/review-patterns/index.md`
+ - `ai-wiki/trails/index.md`
+ - `ai-wiki/people/<handle>/index.md`
+@@ -215,6 +232,9 @@ Suggested index upgrades:
+ 
+ - ai-wiki/index.md
+   Replace legacy folder references with:
++  - conventions/index.md
++  - problem-solutions/index.md
++  - features/index.md
+   - review-patterns/index.md
+   - trails/index.md
+   - people/<handle>/index.md
+@@ -271,6 +291,9 @@ If you want a lighter-weight v1.5, `doctor --suggest-index-upgrade` could emit a
+ Your repo AI wiki index is using a legacy structure.
+ Compare the current `ai-wiki/index.md` with the recommended index starter below.
+ Preserve repo-specific notes, but update the navigation to reference:
++- conventions/index.md
++- problem-solutions/index.md
++- features/index.md
+ - review-patterns/index.md
+ - trails/index.md
+ - people/<handle>/index.md
+diff --git a/src/ai_wiki_toolkit/content.py b/src/ai_wiki_toolkit/content.py
+index 970dd11..f1a2829 100644
+--- a/src/ai_wiki_toolkit/content.py
++++ b/src/ai_wiki_toolkit/content.py
+@@ -13,6 +13,8 @@ TOOLKIT_GITHUB_URL = "https://github.com/BochengYin/ai-wiki-toolkit"
+ TOOLKIT_SKILLS_DIR = ".agents/skills"
+ AI_WIKI_UPDATE_SKILL_DIR = ".agents/skills/ai-wiki-update-check"
+ AI_WIKI_REUSE_SKILL_DIR = ".agents/skills/ai-wiki-reuse-check"
++AI_WIKI_CLARIFY_SKILL_DIR = ".agents/skills/ai-wiki-clarify-coding-task"
++AI_WIKI_PR_REVIEW_LEARNING_SKILL_DIR = ".agents/skills/ai-wiki-pr-review-learning"
+ TELEMETRY_IGNORE_PATHS = (
+     "ai-wiki/metrics/reuse-events/",
+     "ai-wiki/metrics/task-checks/",
+@@ -45,15 +47,21 @@ def repo_starter_files(handle: str) -> dict[str, str]:
+ 
+             1. Read `_toolkit/index.md` for package-managed collaboration rules and baseline workflows.
+             2. Read `constraints.md` for hard constraints and non-negotiables.
+-            3. Read `workflows.md` for repo-specific workflows that extend the managed baseline.
+-            4. Read `decisions.md` for durable project decisions and tradeoffs.
+-            5. Read `review-patterns/index.md` before individual review patterns.
+-            6. Read `trails/index.md` when task-specific chronology or dead ends may help.
+-            7. Read `people/<handle>/index.md` when continuing or recording personal draft notes.
++            3. Read `conventions/index.md` for shared coding conventions.
++            4. Read `workflows.md` for repo-specific workflows that extend the managed baseline.
++            5. Read `decisions.md` for durable project decisions and tradeoffs.
++            6. Read `problem-solutions/index.md` when debugging repeated or familiar failures.
++            7. Read `features/index.md` when feature-specific working memory may help.
++            8. Read `review-patterns/index.md` before individual review patterns.
++            9. Read `trails/index.md` when task-specific chronology or dead ends may help.
++            10. Read `people/<handle>/index.md` when continuing or recording personal draft notes.
+ 
+             ## Areas
+ 
+             - `_toolkit/index.md` maps package-managed collaboration rules, baseline workflows, and schemas.
++            - `conventions/index.md` maps shared coding conventions that multiple contributors should follow.
++            - `problem-solutions/index.md` maps reusable problem-solution notes from real debugging work.
++            - `features/index.md` maps feature-specific working memory, open questions, and current implementation state.
+             - `review-patterns/index.md` maps shared, reusable review rules.
+             - `trails/index.md` maps task-specific chronology, dead ends, and release trails.
+             - `people/<handle>/index.md` maps handle-local draft notes and working history.
+@@ -87,6 +95,42 @@ def repo_starter_files(handle: str) -> dict[str, str]:
+             """
+         ).strip()
+         + "\n",
++        "conventions/index.md": dedent(
++            """
++            # Shared Conventions Index
++
++            Use this file to map shared repo conventions that coding agents and human contributors should follow.
++
++            Keep each durable convention as its own file under `conventions/`, then update this index with a short description and when to read it.
++
++            Use `_toolkit/schema/team-memory-v1.md` for the lightweight note shape.
++            """
++        ).strip()
++        + "\n",
++        "problem-solutions/index.md": dedent(
++            """
++            # Problem-Solution Notes Index
++
++            Use this file to map reusable notes for problems the team has already debugged.
++
++            Keep each repeatable problem and its proven solution as its own file under `problem-solutions/`, then update this index with symptoms, affected areas, and when to read it.
++
++            Use `_toolkit/schema/team-memory-v1.md` for the lightweight note shape.
++            """
++        ).strip()
++        + "\n",
++        "features/index.md": dedent(
++            """
++            # Feature Working Memory Index
++
++            Use this file to map feature-specific working memory.
++
++            Keep each feature or feature area as its own file under `features/`, then update this index with current state, open questions, and links to related decisions, conventions, trails, or problem-solution notes.
++
++            Use `_toolkit/schema/team-memory-v1.md` for the lightweight note shape.
++            """
++        ).strip()
++        + "\n",
+         "review-patterns/index.md": dedent(
+             """
+             # Review Patterns Index
+@@ -180,7 +224,8 @@ def managed_repo_toolkit_files() -> dict[str, str]:
+ 
+             1. Read `system.md` for package-managed collaboration rules.
+             2. Read `workflows.md` for package-managed baseline workflows.
+-            3. Read `schema/reuse-v1.md` only when reuse metrics, logging, or schema questions matter.
++            3. Read `schema/team-memory-v1.md` when adding conventions, problem-solution notes, or feature working memory.
++            4. Read `schema/reuse-v1.md` only when reuse metrics, logging, or schema questions matter.
+ 
+             ## Generated Outputs
+ 
+@@ -200,10 +245,14 @@ def managed_repo_toolkit_files() -> dict[str, str]:
+ 
+             1. Read `ai-wiki/_toolkit/index.md`.
+             2. Read `ai-wiki/index.md`.
+-            3. Read `ai-wiki/review-patterns/index.md` before implementation or review work.
+-            4. Read `ai-wiki/people/<handle>/index.md` when continuing draft work.
+-            5. If repo docs are not enough, read `<home>/ai-wiki/system/_toolkit/system.md` and then `<home>/ai-wiki/system/index.md`.
+-            6. If `ai-wiki-reuse-check` and `ai-wiki-update-check` skills are available, use them for end-of-task AI wiki checks.
++            3. Read `ai-wiki/conventions/index.md` before implementation when repo conventions may matter.
++            4. Read `ai-wiki/features/index.md` before changing a feature with existing working memory.
++            5. Read `ai-wiki/problem-solutions/index.md` when debugging a repeated or familiar failure.
++            6. Read `ai-wiki/review-patterns/index.md` before implementation or review work.
++            7. Read `ai-wiki/people/<handle>/index.md` when continuing draft work.
++            8. If repo docs are not enough, read `<home>/ai-wiki/system/_toolkit/system.md` and then `<home>/ai-wiki/system/index.md`.
++            9. If `ai-wiki-clarify-coding-task` is available, use it before implementation when the user request, issue, or acceptance criteria are ambiguous.
++            10. If `ai-wiki-reuse-check` and `ai-wiki-update-check` skills are available, use them for end-of-task AI wiki checks.
+ 
+             ## AI Wiki Reuse Check
+ 
+@@ -230,6 +279,15 @@ def managed_repo_toolkit_files() -> dict[str, str]:
+             4. If the outcome is `Draft` or `PromotionCandidate`, also print:
+                - `AI Wiki Update Path: <path>`
+ 
++            ## Team Memory Workflow
++
++            1. Put shared coding conventions in `ai-wiki/conventions/`.
++            2. Put reusable problem-solution notes in `ai-wiki/problem-solutions/`.
++            3. Put feature-specific working memory in `ai-wiki/features/`.
++            4. Keep team-memory notes small, indexed, and written for multiple contributors.
++            5. Use `ai-wiki/_toolkit/schema/team-memory-v1.md` when shaping new team-memory notes.
++            6. If a coding task is ambiguous and cannot be resolved from repo context, clarify before implementation.
++
+             ## Review Draft Workflow
+ 
+             1. Record new review findings in `ai-wiki/people/<handle>/drafts/`.
+@@ -237,6 +295,7 @@ def managed_repo_toolkit_files() -> dict[str, str]:
+                - the same issue has been observed at least twice
+                - a reviewer judges it reusable and can write a stable rule
+             3. Agents may mark a draft as a promotion candidate, but shared patterns require human confirmation.
++            4. If `ai-wiki-pr-review-learning` is available, use it after addressing PR review feedback that may contain reusable learning.
+ 
+             ## Shared Pattern Workflow
+ 
+@@ -286,13 +345,102 @@ def managed_repo_toolkit_files() -> dict[str, str]:
+             4. Record one `aiwiki-toolkit record-reuse-check` entry for the task using `wiki_used` or `no_wiki_use`.
+             5. The installer manages a `.gitignore` block that ignores `ai-wiki/metrics/reuse-events/`, `ai-wiki/metrics/task-checks/`, `ai-wiki/_toolkit/metrics/`, and `ai-wiki/_toolkit/catalog.json` so telemetry stays local by default.
+             6. If those telemetry paths were tracked before you upgraded, run `aiwiki-toolkit doctor` and follow the suggested `git rm --cached` fix once to untrack them.
+-            7. Run one AI wiki update check at the end of every completed task, even when the result is `None`.
+-            8. Always end with exactly one status line: `AI Wiki Update Candidate: None`, `Draft`, or `PromotionCandidate`.
+-            9. If the result is `Draft` or `PromotionCandidate`, also print `AI Wiki Update Path: <path>`.
+-            10. Put reusable repo-specific lessons in `ai-wiki/review-patterns/`.
+-            11. Put task-specific chronology and dead ends in `ai-wiki/trails/`.
+-            12. Put raw personal draft notes in `ai-wiki/people/<handle>/drafts/`.
+-            13. Promote only stable, reviewable rules into shared patterns.
++            7. Use `ai-wiki-clarify-coding-task` before implementation when a coding task has blocking ambiguity.
++            8. Use `ai-wiki-pr-review-learning` after addressing PR review feedback that may teach a reusable repo lesson.
++            9. Run one AI wiki update check at the end of every completed task, even when the result is `None`.
++            10. Always end with exactly one status line: `AI Wiki Update Candidate: None`, `Draft`, or `PromotionCandidate`.
++            11. If the result is `Draft` or `PromotionCandidate`, also print `AI Wiki Update Path: <path>`.
++            12. Put shared coding conventions in `ai-wiki/conventions/`.
++            13. Put reusable problem-solution notes in `ai-wiki/problem-solutions/`.
++            14. Put feature-specific working memory in `ai-wiki/features/`.
++            15. Put reusable review-specific lessons in `ai-wiki/review-patterns/`.
++            16. Put task-specific chronology and dead ends in `ai-wiki/trails/`.
++            17. Put raw personal draft notes in `ai-wiki/people/<handle>/drafts/`.
++            18. Promote only stable, reviewable rules into shared patterns.
++            """
++        ).strip()
++        + "\n",
++        "schema/team-memory-v1.md": dedent(
++            """
++            # Team Memory Schema v1
++
++            This document describes the lightweight shape for repo-local team coding memory.
++
++            ## Goals
++
++            - make shared repo conventions easy to find before implementation
++            - preserve reusable problem-solution learning from real debugging work
++            - keep feature-specific working memory close to the repository
++            - keep user-owned team memory stable across package upgrades
++
++            ## User-Owned Areas
++
++            Team-memory content lives outside `_toolkit/**` and is user-owned:
++
++            - `ai-wiki/conventions/` for shared coding conventions
++            - `ai-wiki/problem-solutions/` for reusable problem-solution notes
++            - `ai-wiki/features/` for feature-specific working memory
++            - `ai-wiki/review-patterns/` for reusable review rules
++            - `ai-wiki/people/<handle>/drafts/` for personal draft notes before promotion
++
++            The installer creates starter indexes in these areas only when the files are missing.
++
++            ## Conventions
++
++            Convention notes should be stable rules that multiple contributors can apply.
++
++            Recommended sections:
++
++            - `Context`
++            - `Rule`
++            - `Examples`
++            - `When To Revisit`
++
++            ## Problem-Solution Notes
++
++            Problem-solution notes should capture repeatable debugging knowledge.
++
++            Recommended sections:
++
++            - `Problem`
++            - `Symptoms`
++            - `Cause`
++            - `Solution`
++            - `Verification`
++            - `Related Files`
++
++            ## Feature Working Memory
++
++            Feature notes should capture current implementation state without replacing issue trackers.
++
++            Recommended sections:
++
++            - `Scope`
++            - `Current State`
++            - `Decisions`
++            - `Open Questions`
++            - `Related Notes`
++
++            ## Optional Frontmatter
++
++            Team-memory notes may use YAML frontmatter with:
++
++            - `title`
++            - `author_handle`
++            - `status`
++            - `created_at`
++            - `updated_at`
++            - `related`
++
++            Use `status: active`, `draft`, or `deprecated`.
++
++            ## Managed Boundary
++
++            Package-managed schema guidance lives under `ai-wiki/_toolkit/schema/`.
++
++            Do not put project facts, feature state, or team decisions in `_toolkit/**`.
++
++            Do not overwrite user-owned team-memory notes during install or package upgrade.
+             """
+         ).strip()
+         + "\n",
+@@ -426,6 +574,195 @@ def managed_home_toolkit_files() -> dict[str, str]:
+ 
+ def repo_skill_starter_files() -> dict[str, str]:
+     return {
++        f"{AI_WIKI_CLARIFY_SKILL_DIR}/SKILL.md": dedent(
++            """
++            ---
++            name: ai-wiki-clarify-coding-task
++            description: Clarify ambiguous coding tasks before implementation in repositories using ai-wiki-toolkit. Use before coding when the request, issue, acceptance criteria, target behavior, or safe implementation boundary is unclear after checking repo context.
++            ---
++
++            # Clarify Coding Task
++
++            Use this skill before implementation when a coding task has blocking ambiguity.
++
++            Do not use it to delay straightforward work.
++
++            ## Core Workflow
++
++            1. Inspect available repo context first, including `ai-wiki/index.md`, relevant conventions, feature notes, problem-solution notes, and nearby code.
++            2. Separate blocking ambiguities from choices that can be handled with a clear assumption.
++            3. Ask only the questions needed to unblock implementation, with at most three questions in one turn.
++            4. When a safe default is obvious, state the assumption and proceed instead of asking.
++            5. After clarification, continue implementation and keep any durable team lesson in the appropriate AI wiki area.
++
++            ## Constraints
++
++            - Do not ask questions that the repository, AI wiki, tests, or issue text can answer.
++            - Keep questions concrete and answerable.
++            - Prefer multiple-choice options when the tradeoff is known.
++            - Keep shared guidance suitable for multiple contributors.
++            - Do not write to `_toolkit/**`; it is package-managed.
++            """
++        ).strip()
++        + "\n",
++        f"{AI_WIKI_CLARIFY_SKILL_DIR}/references/decision-rules.md": dedent(
++            """
++            # Decision Rules
++
++            ## Use This Skill When
++
++            - the requested behavior has multiple plausible interpretations
++            - acceptance criteria conflict or are missing for a user-visible change
++            - implementation could affect data, migrations, security, billing, auth, or public APIs
++            - the target feature, workflow, or compatibility boundary is unclear
++
++            ## Do Not Use This Skill When
++
++            - the ambiguity is cosmetic and a local convention already answers it
++            - tests, code, or AI wiki docs provide enough context to proceed
++            - the user asked for exploration, planning, or review rather than implementation
++
++            ## Note Placement
++
++            - Put durable conventions in `ai-wiki/conventions/`.
++            - Put reusable debugging outcomes in `ai-wiki/problem-solutions/`.
++            - Put feature-local state or open questions in `ai-wiki/features/`.
++            - Put raw personal drafts in `ai-wiki/people/<handle>/drafts/`.
++            """
++        ).strip()
++        + "\n",
++        f"{AI_WIKI_CLARIFY_SKILL_DIR}/references/output-contract.md": dedent(
++            """
++            # Output Contract
++
++            If clarification is needed, ask at most three questions.
++
++            Each question should include:
++
++            - the decision needed
++            - why it matters
++            - the recommended answer when one is available
++
++            If clarification is not needed, proceed with a short assumption statement when useful:
++
++            ```text
++            Assumption: <specific assumption>. I will proceed on that basis.
++            ```
++            """
++        ).strip()
++        + "\n",
++        f"{AI_WIKI_CLARIFY_SKILL_DIR}/agents/openai.yaml": dedent(
++            """
++            interface:
++              display_name: "Clarify Coding Task"
++              short_description: "Clarify ambiguous coding work before implementation"
++              default_prompt: "Clarify the ambiguous coding task before implementation."
++            """
++        ).strip()
++        + "\n",
++        f"{AI_WIKI_PR_REVIEW_LEARNING_SKILL_DIR}/SKILL.md": dedent(
++            """
++            ---
++            name: ai-wiki-pr-review-learning
++            description: Capture reusable learning from PR review feedback in repositories using ai-wiki-toolkit. Use after inspecting or addressing PR review comments when the feedback may teach a durable repo convention, review pattern, problem-solution note, or feature-specific lesson.
++            ---
++
++            # PR Review Learning
++
++            Use this skill after PR review feedback reveals a lesson that may be reusable.
++
++            This skill complements the mandatory end-of-task AI wiki update check.
++
++            ## Core Workflow
++
++            1. Identify the reviewer feedback, the fix, and the underlying reusable lesson.
++            2. Decide whether the lesson belongs in conventions, problem-solution notes, feature working memory, review patterns, or personal drafts.
++            3. Record raw or unconfirmed learning under `ai-wiki/people/<handle>/drafts/`.
++            4. Mark a draft as a promotion candidate only when the promotion gate in [references/decision-rules.md](references/decision-rules.md) is satisfied.
++            5. Emit the result using [references/output-contract.md](references/output-contract.md).
++
++            ## Constraints
++
++            - Do not create or update `ai-wiki/review-patterns/*.md` without human confirmation.
++            - Do not overwrite user-owned AI wiki docs.
++            - Do not write PR-specific facts into shared conventions unless they are stable beyond the PR.
++            - Do not write to `_toolkit/**`; it is package-managed.
++            """
++        ).strip()
++        + "\n",
++        f"{AI_WIKI_PR_REVIEW_LEARNING_SKILL_DIR}/references/decision-rules.md": dedent(
++            """
++            # Decision Rules
++
++            ## Outcome Meanings
++
++            - `None`
++              Use when the PR feedback was one-off or already covered by existing guidance.
++
++            - `Draft`
++              Use when the feedback contains a durable lesson, but the lesson is raw, PR-specific, or not yet ready for shared promotion.
++
++            - `PromotionCandidate`
++              Use when a draft exists or was updated and the lesson satisfies the promotion gate, but human confirmation is still required before shared review-pattern changes.
++
++            ## Promotion Gate
++
++            Only choose `PromotionCandidate` when at least one of these is true:
++
++            - the same PR review issue has been observed at least twice
++            - a reviewer says the feedback should become a reusable rule
++            - the feedback can be expressed as a stable review rule with clear examples and a checklist
++
++            ## Note Placement
++
++            - Put shared coding conventions in `ai-wiki/conventions/` after confirmation.
++            - Put reusable debugging fixes in `ai-wiki/problem-solutions/` after confirmation.
++            - Put feature-local PR context in `ai-wiki/features/` after confirmation.
++            - Put reusable review rules in `ai-wiki/review-patterns/` only after human confirmation.
++            - Put raw personal notes in `ai-wiki/people/<handle>/drafts/`.
++            """
++        ).strip()
++        + "\n",
++        f"{AI_WIKI_PR_REVIEW_LEARNING_SKILL_DIR}/references/output-contract.md": dedent(
++            """
++            # Output Contract
++
++            Choose exactly one final status line:
++
++            - `PR Review Learning: None`
++            - `PR Review Learning: Draft`
++            - `PR Review Learning: PromotionCandidate`
++
++            If the outcome is `Draft` or `PromotionCandidate`, also print:
++
++            - `PR Review Learning Path: <path>`
++
++            ## Examples
++
++            No reusable learning:
++
++            ```text
++            PR Review Learning: None
++            ```
++
++            Durable lesson captured as a draft:
++
++            ```text
++            PR Review Learning: Draft
++            PR Review Learning Path: ai-wiki/people/<handle>/drafts/<file>.md
++            ```
++            """
++        ).strip()
++        + "\n",
++        f"{AI_WIKI_PR_REVIEW_LEARNING_SKILL_DIR}/agents/openai.yaml": dedent(
++            """
++            interface:
++              display_name: "PR Review Learning"
++              short_description: "Capture reusable learning from PR review feedback"
++              default_prompt: "Capture reusable AI wiki learning from this PR review feedback."
++            """
++        ).strip()
++        + "\n",
+         f"{AI_WIKI_UPDATE_SKILL_DIR}/SKILL.md": dedent(
+             """
+             ---
+@@ -641,14 +978,18 @@ def prompt_block_body() -> str:
+ 
+         1. Read `ai-wiki/_toolkit/index.md`.
+         2. Read `ai-wiki/index.md`.
+-        3. Read `ai-wiki/review-patterns/index.md` before implementation or review work.
+-        4. Read your own folder index under `ai-wiki/people/<handle>/index.md` when continuing draft notes.
+-        5. If repo docs are not enough, read `<home>/ai-wiki/system/_toolkit/system.md` and then `<home>/ai-wiki/system/index.md`.
+-        6. Keep project-specific notes in `ai-wiki/`.
+-        7. Keep cross-project reusable notes in `<home>/ai-wiki/system/`.
+-        8. Only suggest promotion from a draft to a shared pattern when the two-signal gate is satisfied.
+-        9. Agents may suggest promotion candidates, but humans confirm shared patterns.
+-        10. If `ai-wiki-reuse-check` and `ai-wiki-update-check` skills are available, use them for the end-of-task AI wiki checks.
++        3. Read `ai-wiki/conventions/index.md` before implementation when repo conventions may matter.
++        4. Read `ai-wiki/features/index.md` before feature-specific work.
++        5. Read `ai-wiki/problem-solutions/index.md` when debugging repeated or familiar failures.
++        6. Read `ai-wiki/review-patterns/index.md` before implementation or review work.
++        7. Read your own folder index under `ai-wiki/people/<handle>/index.md` when continuing draft notes.
++        8. If repo docs are not enough, read `<home>/ai-wiki/system/_toolkit/system.md` and then `<home>/ai-wiki/system/index.md`.
++        9. Keep project-specific notes in `ai-wiki/`.
++        10. Keep cross-project reusable notes in `<home>/ai-wiki/system/`.
++        11. If `ai-wiki-clarify-coding-task` is available, use it before implementation when the task, issue, or acceptance criteria are ambiguous.
++        12. Only suggest promotion from a draft to a shared pattern when the two-signal gate is satisfied.
++        13. Agents may suggest promotion candidates, but humans confirm shared patterns.
++        14. If `ai-wiki-reuse-check` and `ai-wiki-update-check` skills are available, use them for the end-of-task AI wiki checks.
+ 
+         ## End Of Task
+ 
+@@ -657,11 +998,12 @@ def prompt_block_body() -> str:
+         3. If a managed `_toolkit/**` doc materially changed the plan or behavior, cite its path in a progress update or final note, but do not log it with `record-reuse`.
+         4. If a user-owned AI wiki doc materially changed the plan or behavior, cite its path in a progress update or final note.
+         5. Record one `aiwiki-toolkit record-reuse-check` entry for the task using `wiki_used` or `no_wiki_use`.
+-        6. Run one AI wiki update check for every completed task, even if the result is `None`.
+-        7. Choose exactly one result: `None`, `Draft`, or `PromotionCandidate`.
+-        8. If the result is `Draft`, record the lesson under `ai-wiki/people/<handle>/drafts/` and print `AI Wiki Update Path: <path>`.
+-        9. If the result is `PromotionCandidate`, mark or update the draft as a promotion candidate, print `AI Wiki Update Path: <path>`, and ask for human confirmation before creating `ai-wiki/review-patterns/*.md`.
+-        10. Always print exactly one final status line:
++        6. If PR review feedback produced reusable learning and `ai-wiki-pr-review-learning` is available, use it before the final AI wiki update check.
++        7. Run one AI wiki update check for every completed task, even if the result is `None`.
++        8. Choose exactly one result: `None`, `Draft`, or `PromotionCandidate`.
++        9. If the result is `Draft`, record the lesson under `ai-wiki/people/<handle>/drafts/` and print `AI Wiki Update Path: <path>`.
++        10. If the result is `PromotionCandidate`, mark or update the draft as a promotion candidate, print `AI Wiki Update Path: <path>`, and ask for human confirmation before creating `ai-wiki/review-patterns/*.md`.
++        11. Always print exactly one final status line:
+            - `AI Wiki Update Candidate: None`
+            - `AI Wiki Update Candidate: Draft`
+            - `AI Wiki Update Candidate: PromotionCandidate`
+diff --git a/src/ai_wiki_toolkit/doctor.py b/src/ai_wiki_toolkit/doctor.py
+index d8e2528..275df0f 100644
+--- a/src/ai_wiki_toolkit/doctor.py
++++ b/src/ai_wiki_toolkit/doctor.py
+@@ -100,8 +100,11 @@ def _add_suggestion(
+ def _top_level_index_missing_tokens() -> tuple[str, ...]:
+     return (
+         "_toolkit/index.md",
++        "conventions/index.md",
+         "workflows.md",
+         "decisions.md",
++        "problem-solutions/index.md",
++        "features/index.md",
+         "review-patterns/index.md",
+         "trails/index.md",
+         "people/<handle>/index.md",
+@@ -236,6 +239,25 @@ def _collect_repo_rule_docs(paths: ToolkitPaths) -> list[RuleDoc]:
+             )
+         )
+ 
++    for relative_dir, family in (
++        ("conventions", "convention"),
++        ("problem-solutions", "problem_solution"),
++    ):
++        directory = paths.repo_wiki_dir / relative_dir
++        if not directory.exists():
++            continue
++        for path in sorted(directory.glob("*.md")):
++            if path.name == "index.md":
++                continue
++            documents.append(
++                _build_rule_doc(
++                    path,
++                    display_path=f"ai-wiki/{relative_dir}/{path.name}",
++                    family=family,
++                    scope="repo",
++                )
++            )
++
+     return documents
+ 
+ 
+@@ -702,6 +724,9 @@ def _check_prompt_targets(result: DoctorResult) -> None:
+         for token in (
+             "ai-wiki/_toolkit/index.md",
+             "ai-wiki/index.md",
++            "conventions/index.md",
++            "features/index.md",
++            "problem-solutions/index.md",
+             "review-patterns/index.md",
+             "people/<handle>/index.md",
+         ):
+@@ -759,10 +784,34 @@ def run_doctor(start: Path | None = None, handle: str | None = None) -> DoctorRe
+     _check_required_managed_doc(result, relative_path="index.md", description="toolkit index")
+     _check_required_managed_doc(result, relative_path="system.md", description="system rules")
+     _check_required_managed_doc(result, relative_path="workflows.md", description="baseline workflows")
++    _check_required_managed_doc(
++        result,
++        relative_path="schema/team-memory-v1.md",
++        description="team-memory schema",
++    )
++    _check_required_managed_doc(result, relative_path="schema/reuse-v1.md", description="reuse schema")
+     _check_gitignore(result)
+     _check_tracked_telemetry(result)
+     _check_repo_index(result, starters)
+     _check_repo_workflows(result, starters)
++    _check_child_index(
++        result,
++        relative_path="conventions/index.md",
++        starter_content=starters["conventions/index.md"],
++        description="shared conventions",
++    )
++    _check_child_index(
++        result,
++        relative_path="problem-solutions/index.md",
++        starter_content=starters["problem-solutions/index.md"],
++        description="problem-solution notes",
++    )
++    _check_child_index(
++        result,
++        relative_path="features/index.md",
++        starter_content=starters["features/index.md"],
++        description="feature working memory",
++    )
+     _check_child_index(
+         result,
+         relative_path="review-patterns/index.md",
+diff --git a/src/ai_wiki_toolkit/scaffold.py b/src/ai_wiki_toolkit/scaffold.py
+index 253355c..5988560 100644
+--- a/src/ai_wiki_toolkit/scaffold.py
++++ b/src/ai_wiki_toolkit/scaffold.py
+@@ -126,6 +126,9 @@ def install_workspace(start: Path | None = None, handle: str | None = None) -> I
+         paths.repo_wiki_dir / "metrics",
+         paths.repo_wiki_dir / "metrics" / "reuse-events",
+         paths.repo_wiki_dir / "metrics" / "task-checks",
++        paths.repo_wiki_dir / "conventions",
++        paths.repo_wiki_dir / "problem-solutions",
++        paths.repo_wiki_dir / "features",
+         paths.repo_wiki_dir / "trails",
+         paths.review_patterns_dir,
+         paths.people_dir / resolved_handle / "drafts",
+diff --git a/src/ai_wiki_toolkit/wiki_schema.py b/src/ai_wiki_toolkit/wiki_schema.py
+index 6fa4a22..cb06db5 100644
+--- a/src/ai_wiki_toolkit/wiki_schema.py
++++ b/src/ai_wiki_toolkit/wiki_schema.py
+@@ -40,6 +40,12 @@ def infer_doc_kind(relative_path: str) -> str:
+         return "decisions"
+     if relative_path == "metrics/index.md":
+         return "metrics_index"
++    if parts[0] == "conventions":
++        return "convention_index" if relative_path.endswith("/index.md") else "convention"
++    if parts[0] == "problem-solutions":
++        return "problem_solution_index" if relative_path.endswith("/index.md") else "problem_solution"
++    if parts[0] == "features":
++        return "feature_index" if relative_path.endswith("/index.md") else "feature_memory"
+     if parts[0] == "review-patterns":
+         return "review_pattern_index" if relative_path.endswith("/index.md") else "review_pattern"
+     if parts[0] == "trails":
+diff --git a/tests/test_doctor.py b/tests/test_doctor.py
+index b90ab80..98992b1 100644
+--- a/tests/test_doctor.py
++++ b/tests/test_doctor.py
+@@ -20,6 +20,7 @@ def test_doctor_is_clean_for_latest_navigation_and_rule_structure(
+ 
+     assert result.exit_code == 0
+     assert "OK    ai-wiki/_toolkit/index.md `ai-wiki/_toolkit/index.md` exists." in result.output
++    assert "OK    ai-wiki/_toolkit/schema/team-memory-v1.md `ai-wiki/_toolkit/schema/team-memory-v1.md` exists." in result.output
+     assert "OK    ai-wiki/_toolkit/workflows.md `ai-wiki/_toolkit/workflows.md` exists." in result.output
+     assert "OK    .gitignore `.gitignore` already contains the current managed telemetry ignore block." in result.output
+     assert "OK    ai-wiki/index.md `ai-wiki/index.md` already uses the current index-based navigation shape." in result.output
+@@ -78,9 +79,13 @@ def test_doctor_suggests_starter_updates_for_repo_docs(repo_env: dict[str, Path]
+     assert "Suggested starter updates:" in result.output
+     assert "Path: ai-wiki/index.md" in result.output
+     assert "Path: ai-wiki/workflows.md" in result.output
++    assert "Path: ai-wiki/conventions/index.md" in result.output
++    assert "Path: ai-wiki/problem-solutions/index.md" in result.output
++    assert "Path: ai-wiki/features/index.md" in result.output
+     assert "Path: ai-wiki/review-patterns/index.md" in result.output
+     assert "Read `_toolkit/index.md` for package-managed collaboration rules and baseline workflows." in result.output
+     assert "See also `_toolkit/workflows.md` for package-managed baseline workflows" in result.output
++    assert "Use `_toolkit/schema/team-memory-v1.md` for the lightweight note shape." in result.output
+ 
+ 
+ def test_doctor_warns_on_same_scope_duplicate_rule_sections(repo_env: dict[str, Path]) -> None:
+diff --git a/tests/test_init_scenarios.py b/tests/test_init_scenarios.py
+index 5421e97..2705e25 100644
+--- a/tests/test_init_scenarios.py
++++ b/tests/test_init_scenarios.py
+@@ -17,6 +17,20 @@ def test_init_empty_repo_creates_expected_tree(repo_env: dict[str, Path]) -> Non
+     assert snapshot_tree(repo_env["repo"]) == [
+         ".agents/",
+         ".agents/skills/",
++        ".agents/skills/ai-wiki-clarify-coding-task/",
++        ".agents/skills/ai-wiki-clarify-coding-task/SKILL.md",
++        ".agents/skills/ai-wiki-clarify-coding-task/agents/",
++        ".agents/skills/ai-wiki-clarify-coding-task/agents/openai.yaml",
++        ".agents/skills/ai-wiki-clarify-coding-task/references/",
++        ".agents/skills/ai-wiki-clarify-coding-task/references/decision-rules.md",
++        ".agents/skills/ai-wiki-clarify-coding-task/references/output-contract.md",
++        ".agents/skills/ai-wiki-pr-review-learning/",
++        ".agents/skills/ai-wiki-pr-review-learning/SKILL.md",
++        ".agents/skills/ai-wiki-pr-review-learning/agents/",
++        ".agents/skills/ai-wiki-pr-review-learning/agents/openai.yaml",
++        ".agents/skills/ai-wiki-pr-review-learning/references/",
++        ".agents/skills/ai-wiki-pr-review-learning/references/decision-rules.md",
++        ".agents/skills/ai-wiki-pr-review-learning/references/output-contract.md",
+         ".agents/skills/ai-wiki-reuse-check/",
+         ".agents/skills/ai-wiki-reuse-check/SKILL.md",
+         ".agents/skills/ai-wiki-reuse-check/agents/",
+@@ -44,10 +58,15 @@ def test_init_empty_repo_creates_expected_tree(repo_env: dict[str, Path]) -> Non
+         "ai-wiki/_toolkit/metrics/task-stats.json",
+         "ai-wiki/_toolkit/schema/",
+         "ai-wiki/_toolkit/schema/reuse-v1.md",
++        "ai-wiki/_toolkit/schema/team-memory-v1.md",
+         "ai-wiki/_toolkit/system.md",
+         "ai-wiki/_toolkit/workflows.md",
+         "ai-wiki/constraints.md",
++        "ai-wiki/conventions/",
++        "ai-wiki/conventions/index.md",
+         "ai-wiki/decisions.md",
++        "ai-wiki/features/",
++        "ai-wiki/features/index.md",
+         "ai-wiki/index.md",
+         "ai-wiki/metrics/",
+         "ai-wiki/metrics/index.md",
+@@ -57,6 +76,8 @@ def test_init_empty_repo_creates_expected_tree(repo_env: dict[str, Path]) -> Non
+         "ai-wiki/people/by/",
+         "ai-wiki/people/by/drafts/",
+         "ai-wiki/people/by/index.md",
++        "ai-wiki/problem-solutions/",
++        "ai-wiki/problem-solutions/index.md",
+         "ai-wiki/review-patterns/",
+         "ai-wiki/review-patterns/index.md",
+         "ai-wiki/trails/",
+@@ -87,14 +108,18 @@ def test_init_writes_expected_agent_snapshot(repo_env: dict[str, Path]) -> None:
+ 
+         1. Read `ai-wiki/_toolkit/index.md`.
+         2. Read `ai-wiki/index.md`.
+-        3. Read `ai-wiki/review-patterns/index.md` before implementation or review work.
+-        4. Read your own folder index under `ai-wiki/people/<handle>/index.md` when continuing draft notes.
+-        5. If repo docs are not enough, read `<home>/ai-wiki/system/_toolkit/system.md` and then `<home>/ai-wiki/system/index.md`.
+-        6. Keep project-specific notes in `ai-wiki/`.
+-        7. Keep cross-project reusable notes in `<home>/ai-wiki/system/`.
+-        8. Only suggest promotion from a draft to a shared pattern when the two-signal gate is satisfied.
+-        9. Agents may suggest promotion candidates, but humans confirm shared patterns.
+-        10. If `ai-wiki-reuse-check` and `ai-wiki-update-check` skills are available, use them for the end-of-task AI wiki checks.
++        3. Read `ai-wiki/conventions/index.md` before implementation when repo conventions may matter.
++        4. Read `ai-wiki/features/index.md` before feature-specific work.
++        5. Read `ai-wiki/problem-solutions/index.md` when debugging repeated or familiar failures.
++        6. Read `ai-wiki/review-patterns/index.md` before implementation or review work.
++        7. Read your own folder index under `ai-wiki/people/<handle>/index.md` when continuing draft notes.
++        8. If repo docs are not enough, read `<home>/ai-wiki/system/_toolkit/system.md` and then `<home>/ai-wiki/system/index.md`.
++        9. Keep project-specific notes in `ai-wiki/`.
++        10. Keep cross-project reusable notes in `<home>/ai-wiki/system/`.
++        11. If `ai-wiki-clarify-coding-task` is available, use it before implementation when the task, issue, or acceptance criteria are ambiguous.
++        12. Only suggest promotion from a draft to a shared pattern when the two-signal gate is satisfied.
++        13. Agents may suggest promotion candidates, but humans confirm shared patterns.
++        14. If `ai-wiki-reuse-check` and `ai-wiki-update-check` skills are available, use them for the end-of-task AI wiki checks.
+ 
+         ## End Of Task
+ 
+@@ -103,11 +128,12 @@ def test_init_writes_expected_agent_snapshot(repo_env: dict[str, Path]) -> None:
+         3. If a managed `_toolkit/**` doc materially changed the plan or behavior, cite its path in a progress update or final note, but do not log it with `record-reuse`.
+         4. If a user-owned AI wiki doc materially changed the plan or behavior, cite its path in a progress update or final note.
+         5. Record one `aiwiki-toolkit record-reuse-check` entry for the task using `wiki_used` or `no_wiki_use`.
+-        6. Run one AI wiki update check for every completed task, even if the result is `None`.
+-        7. Choose exactly one result: `None`, `Draft`, or `PromotionCandidate`.
+-        8. If the result is `Draft`, record the lesson under `ai-wiki/people/<handle>/drafts/` and print `AI Wiki Update Path: <path>`.
+-        9. If the result is `PromotionCandidate`, mark or update the draft as a promotion candidate, print `AI Wiki Update Path: <path>`, and ask for human confirmation before creating `ai-wiki/review-patterns/*.md`.
+-        10. Always print exactly one final status line:
++        6. If PR review feedback produced reusable learning and `ai-wiki-pr-review-learning` is available, use it before the final AI wiki update check.
++        7. Run one AI wiki update check for every completed task, even if the result is `None`.
++        8. Choose exactly one result: `None`, `Draft`, or `PromotionCandidate`.
++        9. If the result is `Draft`, record the lesson under `ai-wiki/people/<handle>/drafts/` and print `AI Wiki Update Path: <path>`.
++        10. If the result is `PromotionCandidate`, mark or update the draft as a promotion candidate, print `AI Wiki Update Path: <path>`, and ask for human confirmation before creating `ai-wiki/review-patterns/*.md`.
++        11. Always print exactly one final status line:
+            - `AI Wiki Update Candidate: None`
+            - `AI Wiki Update Candidate: Draft`
+            - `AI Wiki Update Candidate: PromotionCandidate`
+@@ -130,15 +156,21 @@ def test_init_writes_expected_repo_index_snapshot(repo_env: dict[str, Path]) ->
+ 
+         1. Read `_toolkit/index.md` for package-managed collaboration rules and baseline workflows.
+         2. Read `constraints.md` for hard constraints and non-negotiables.
+-        3. Read `workflows.md` for repo-specific workflows that extend the managed baseline.
+-        4. Read `decisions.md` for durable project decisions and tradeoffs.
+-        5. Read `review-patterns/index.md` before individual review patterns.
+-        6. Read `trails/index.md` when task-specific chronology or dead ends may help.
+-        7. Read `people/<handle>/index.md` when continuing or recording personal draft notes.
++        3. Read `conventions/index.md` for shared coding conventions.
++        4. Read `workflows.md` for repo-specific workflows that extend the managed baseline.
++        5. Read `decisions.md` for durable project decisions and tradeoffs.
++        6. Read `problem-solutions/index.md` when debugging repeated or familiar failures.
++        7. Read `features/index.md` when feature-specific working memory may help.
++        8. Read `review-patterns/index.md` before individual review patterns.
++        9. Read `trails/index.md` when task-specific chronology or dead ends may help.
++        10. Read `people/<handle>/index.md` when continuing or recording personal draft notes.
+ 
+         ## Areas
+ 
+         - `_toolkit/index.md` maps package-managed collaboration rules, baseline workflows, and schemas.
++        - `conventions/index.md` maps shared coding conventions that multiple contributors should follow.
++        - `problem-solutions/index.md` maps reusable problem-solution notes from real debugging work.
++        - `features/index.md` maps feature-specific working memory, open questions, and current implementation state.
+         - `review-patterns/index.md` maps shared, reusable review rules.
+         - `trails/index.md` maps task-specific chronology, dead ends, and release trails.
+         - `people/<handle>/index.md` maps handle-local draft notes and working history.
+@@ -154,6 +186,45 @@ def test_init_writes_expected_repo_index_snapshot(repo_env: dict[str, Path]) ->
+         See also `_toolkit/workflows.md` for package-managed baseline workflows that ship with `ai-wiki-toolkit`.
+         """
+     )
++    assert (repo_env["repo"] / "ai-wiki" / "conventions" / "index.md").read_text(
++        encoding="utf-8"
++    ) == strip_margin(
++        """
++        # Shared Conventions Index
++
++        Use this file to map shared repo conventions that coding agents and human contributors should follow.
++
++        Keep each durable convention as its own file under `conventions/`, then update this index with a short description and when to read it.
++
++        Use `_toolkit/schema/team-memory-v1.md` for the lightweight note shape.
++        """
++    )
++    assert (repo_env["repo"] / "ai-wiki" / "problem-solutions" / "index.md").read_text(
++        encoding="utf-8"
++    ) == strip_margin(
++        """
++        # Problem-Solution Notes Index
++
++        Use this file to map reusable notes for problems the team has already debugged.
++
++        Keep each repeatable problem and its proven solution as its own file under `problem-solutions/`, then update this index with symptoms, affected areas, and when to read it.
++
++        Use `_toolkit/schema/team-memory-v1.md` for the lightweight note shape.
++        """
++    )
++    assert (repo_env["repo"] / "ai-wiki" / "features" / "index.md").read_text(
++        encoding="utf-8"
++    ) == strip_margin(
++        """
++        # Feature Working Memory Index
++
++        Use this file to map feature-specific working memory.
++
++        Keep each feature or feature area as its own file under `features/`, then update this index with current state, open questions, and links to related decisions, conventions, trails, or problem-solution notes.
++
++        Use `_toolkit/schema/team-memory-v1.md` for the lightweight note shape.
++        """
++    )
+ 
+ 
+ def test_init_writes_expected_gitignore_snapshot(repo_env: dict[str, Path]) -> None:
+@@ -189,7 +260,8 @@ def test_init_writes_expected_toolkit_managed_files(repo_env: dict[str, Path]) -
+ 
+         1. Read `system.md` for package-managed collaboration rules.
+         2. Read `workflows.md` for package-managed baseline workflows.
+-        3. Read `schema/reuse-v1.md` only when reuse metrics, logging, or schema questions matter.
++        3. Read `schema/team-memory-v1.md` when adding conventions, problem-solution notes, or feature working memory.
++        4. Read `schema/reuse-v1.md` only when reuse metrics, logging, or schema questions matter.
+ 
+         ## Generated Outputs
+ 
+@@ -210,10 +282,14 @@ def test_init_writes_expected_toolkit_managed_files(repo_env: dict[str, Path]) -
+ 
+         1. Read `ai-wiki/_toolkit/index.md`.
+         2. Read `ai-wiki/index.md`.
+-        3. Read `ai-wiki/review-patterns/index.md` before implementation or review work.
+-        4. Read `ai-wiki/people/<handle>/index.md` when continuing draft work.
+-        5. If repo docs are not enough, read `<home>/ai-wiki/system/_toolkit/system.md` and then `<home>/ai-wiki/system/index.md`.
+-        6. If `ai-wiki-reuse-check` and `ai-wiki-update-check` skills are available, use them for end-of-task AI wiki checks.
++        3. Read `ai-wiki/conventions/index.md` before implementation when repo conventions may matter.
++        4. Read `ai-wiki/features/index.md` before changing a feature with existing working memory.
++        5. Read `ai-wiki/problem-solutions/index.md` when debugging a repeated or familiar failure.
++        6. Read `ai-wiki/review-patterns/index.md` before implementation or review work.
++        7. Read `ai-wiki/people/<handle>/index.md` when continuing draft work.
++        8. If repo docs are not enough, read `<home>/ai-wiki/system/_toolkit/system.md` and then `<home>/ai-wiki/system/index.md`.
++        9. If `ai-wiki-clarify-coding-task` is available, use it before implementation when the user request, issue, or acceptance criteria are ambiguous.
++        10. If `ai-wiki-reuse-check` and `ai-wiki-update-check` skills are available, use them for end-of-task AI wiki checks.
+ 
+         ## AI Wiki Reuse Check
+ 
+@@ -240,6 +316,15 @@ def test_init_writes_expected_toolkit_managed_files(repo_env: dict[str, Path]) -
+         4. If the outcome is `Draft` or `PromotionCandidate`, also print:
+            - `AI Wiki Update Path: <path>`
+ 
++        ## Team Memory Workflow
++
++        1. Put shared coding conventions in `ai-wiki/conventions/`.
++        2. Put reusable problem-solution notes in `ai-wiki/problem-solutions/`.
++        3. Put feature-specific working memory in `ai-wiki/features/`.
++        4. Keep team-memory notes small, indexed, and written for multiple contributors.
++        5. Use `ai-wiki/_toolkit/schema/team-memory-v1.md` when shaping new team-memory notes.
++        6. If a coding task is ambiguous and cannot be resolved from repo context, clarify before implementation.
++
+         ## Review Draft Workflow
+ 
+         1. Record new review findings in `ai-wiki/people/<handle>/drafts/`.
+@@ -247,6 +332,7 @@ def test_init_writes_expected_toolkit_managed_files(repo_env: dict[str, Path]) -
+            - the same issue has been observed at least twice
+            - a reviewer judges it reusable and can write a stable rule
+         3. Agents may mark a draft as a promotion candidate, but shared patterns require human confirmation.
++        4. If `ai-wiki-pr-review-learning` is available, use it after addressing PR review feedback that may contain reusable learning.
+ 
+         ## Shared Pattern Workflow
+ 
+@@ -297,15 +383,30 @@ def test_init_writes_expected_toolkit_managed_files(repo_env: dict[str, Path]) -
+         4. Record one `aiwiki-toolkit record-reuse-check` entry for the task using `wiki_used` or `no_wiki_use`.
+         5. The installer manages a `.gitignore` block that ignores `ai-wiki/metrics/reuse-events/`, `ai-wiki/metrics/task-checks/`, `ai-wiki/_toolkit/metrics/`, and `ai-wiki/_toolkit/catalog.json` so telemetry stays local by default.
+         6. If those telemetry paths were tracked before you upgraded, run `aiwiki-toolkit doctor` and follow the suggested `git rm --cached` fix once to untrack them.
+-        7. Run one AI wiki update check at the end of every completed task, even when the result is `None`.
+-        8. Always end with exactly one status line: `AI Wiki Update Candidate: None`, `Draft`, or `PromotionCandidate`.
+-        9. If the result is `Draft` or `PromotionCandidate`, also print `AI Wiki Update Path: <path>`.
+-        10. Put reusable repo-specific lessons in `ai-wiki/review-patterns/`.
+-        11. Put task-specific chronology and dead ends in `ai-wiki/trails/`.
+-        12. Put raw personal draft notes in `ai-wiki/people/<handle>/drafts/`.
+-        13. Promote only stable, reviewable rules into shared patterns.
++        7. Use `ai-wiki-clarify-coding-task` before implementation when a coding task has blocking ambiguity.
++        8. Use `ai-wiki-pr-review-learning` after addressing PR review feedback that may teach a reusable repo lesson.
++        9. Run one AI wiki update check at the end of every completed task, even when the result is `None`.
++        10. Always end with exactly one status line: `AI Wiki Update Candidate: None`, `Draft`, or `PromotionCandidate`.
++        11. If the result is `Draft` or `PromotionCandidate`, also print `AI Wiki Update Path: <path>`.
++        12. Put shared coding conventions in `ai-wiki/conventions/`.
++        13. Put reusable problem-solution notes in `ai-wiki/problem-solutions/`.
++        14. Put feature-specific working memory in `ai-wiki/features/`.
++        15. Put reusable review-specific lessons in `ai-wiki/review-patterns/`.
++        16. Put task-specific chronology and dead ends in `ai-wiki/trails/`.
++        17. Put raw personal draft notes in `ai-wiki/people/<handle>/drafts/`.
++        18. Promote only stable, reviewable rules into shared patterns.
+         """
+     )
++    team_memory_schema = (
++        repo_env["repo"] / "ai-wiki" / "_toolkit" / "schema" / "team-memory-v1.md"
++    ).read_text(encoding="utf-8")
++    assert team_memory_schema.startswith("# Team Memory Schema v1\n")
++    assert "`ai-wiki/conventions/` for shared coding conventions" in team_memory_schema
++    assert "`ai-wiki/problem-solutions/` for reusable problem-solution notes" in team_memory_schema
++    assert "`ai-wiki/features/` for feature-specific working memory" in team_memory_schema
++    assert "Do not overwrite user-owned team-memory notes during install or package upgrade." in (
++        team_memory_schema
++    )
+     assert (
+         repo_env["home_dir"] / "system" / "_toolkit" / "system.md"
+     ).read_text(encoding="utf-8") == strip_margin(
+@@ -375,9 +476,17 @@ def test_init_does_not_overwrite_existing_user_docs(repo_env: dict[str, Path]) -
+ 
+ def test_init_does_not_overwrite_existing_user_owned_indexes(repo_env: dict[str, Path]) -> None:
+     repo_wiki = repo_env["repo"] / "ai-wiki"
++    (repo_wiki / "conventions").mkdir(parents=True)
++    (repo_wiki / "problem-solutions").mkdir(parents=True)
++    (repo_wiki / "features").mkdir(parents=True)
+     (repo_wiki / "review-patterns").mkdir(parents=True)
+     (repo_wiki / "metrics").mkdir(parents=True)
+     (repo_wiki / "people" / "alice").mkdir(parents=True)
++    (repo_wiki / "conventions" / "index.md").write_text("# Custom conventions index\n", encoding="utf-8")
++    (repo_wiki / "problem-solutions" / "index.md").write_text(
++        "# Custom problem-solution index\n", encoding="utf-8"
++    )
++    (repo_wiki / "features" / "index.md").write_text("# Custom features index\n", encoding="utf-8")
+     (repo_wiki / "review-patterns" / "index.md").write_text("# Custom review index\n", encoding="utf-8")
+     (repo_wiki / "metrics" / "index.md").write_text("# Custom metrics index\n", encoding="utf-8")
+     (repo_wiki / "people" / "alice" / "index.md").write_text("# Custom person index\n", encoding="utf-8")
+@@ -385,6 +494,15 @@ def test_init_does_not_overwrite_existing_user_owned_indexes(repo_env: dict[str,
+     result = runner.invoke(app, ["init", "--handle", "alice"])
+ 
+     assert result.exit_code == 0
++    assert (repo_wiki / "conventions" / "index.md").read_text(encoding="utf-8") == (
++        "# Custom conventions index\n"
++    )
++    assert (repo_wiki / "problem-solutions" / "index.md").read_text(encoding="utf-8") == (
++        "# Custom problem-solution index\n"
++    )
++    assert (repo_wiki / "features" / "index.md").read_text(encoding="utf-8") == (
++        "# Custom features index\n"
++    )
+     assert (repo_wiki / "review-patterns" / "index.md").read_text(encoding="utf-8") == (
+         "# Custom review index\n"
+     )
+@@ -402,6 +520,12 @@ def test_init_writes_catalog_and_empty_stats(repo_env: dict[str, Path]) -> None:
+     assert result.exit_code == 0
+     catalog = (repo_env["repo"] / "ai-wiki" / "_toolkit" / "catalog.json").read_text(encoding="utf-8")
+     assert '"schema_version": "reuse-v1"' in catalog
++    assert '"doc_id": "conventions/index"' in catalog
++    assert '"kind": "convention_index"' in catalog
++    assert '"doc_id": "problem-solutions/index"' in catalog
++    assert '"kind": "problem_solution_index"' in catalog
++    assert '"doc_id": "features/index"' in catalog
++    assert '"kind": "feature_index"' in catalog
+     assert '"doc_id": "review-patterns/index"' in catalog
+     assert '"doc_id": "people/alice/index"' in catalog
+ 
+diff --git a/tests/test_install_uninstall_scenarios.py b/tests/test_install_uninstall_scenarios.py
+index a73a0df..782b9ce 100644
+--- a/tests/test_install_uninstall_scenarios.py
++++ b/tests/test_install_uninstall_scenarios.py
+@@ -15,9 +15,26 @@ def test_install_command_matches_init_behavior(repo_env: dict[str, Path]) -> Non
+ 
+     assert result.exit_code == 0
+     assert (repo_env["repo"] / "ai-wiki" / "people" / "alice" / "drafts").is_dir()
++    assert (repo_env["repo"] / "ai-wiki" / "conventions" / "index.md").exists()
++    assert (repo_env["repo"] / "ai-wiki" / "problem-solutions" / "index.md").exists()
++    assert (repo_env["repo"] / "ai-wiki" / "features" / "index.md").exists()
+     assert (repo_env["repo"] / "AGENT.md").exists()
+     assert (repo_env["repo"] / "ai-wiki" / "_toolkit" / "index.md").exists()
+     assert (repo_env["repo"] / "ai-wiki" / "_toolkit" / "workflows.md").exists()
++    assert (
++        repo_env["repo"]
++        / ".agents"
++        / "skills"
++        / "ai-wiki-clarify-coding-task"
++        / "SKILL.md"
++    ).exists()
++    assert (
++        repo_env["repo"]
++        / ".agents"
++        / "skills"
++        / "ai-wiki-pr-review-learning"
++        / "SKILL.md"
++    ).exists()
+     assert (
+         repo_env["repo"]
+         / ".agents"
+diff --git a/tests/test_wiki_schema.py b/tests/test_wiki_schema.py
+index 3d5d967..15d86fb 100644
+--- a/tests/test_wiki_schema.py
++++ b/tests/test_wiki_schema.py
+@@ -78,6 +78,75 @@ def test_build_repo_catalog_prefers_frontmatter_title(tmp_path: Path) -> None:
+     }
+ 
+ 
++def test_build_repo_catalog_classifies_team_memory_areas(tmp_path: Path) -> None:
++    repo_wiki = tmp_path / "ai-wiki"
++    (repo_wiki / "conventions").mkdir(parents=True)
++    (repo_wiki / "problem-solutions").mkdir(parents=True)
++    (repo_wiki / "features" / "search").mkdir(parents=True)
++    (repo_wiki / "conventions" / "index.md").write_text("# Shared Conventions Index\n", encoding="utf-8")
++    (repo_wiki / "conventions" / "typing.md").write_text("# Typing Rules\n", encoding="utf-8")
++    (repo_wiki / "problem-solutions" / "index.md").write_text(
++        "# Problem-Solution Notes Index\n", encoding="utf-8"
++    )
++    (repo_wiki / "problem-solutions" / "stale-cache.md").write_text(
++        "# Stale Cache\n", encoding="utf-8"
++    )
++    (repo_wiki / "features" / "index.md").write_text("# Feature Working Memory Index\n", encoding="utf-8")
++    (repo_wiki / "features" / "search" / "index.md").write_text(
++        "# Search Working Memory\n", encoding="utf-8"
++    )
++
++    catalog = build_repo_catalog(repo_wiki)
++
++    assert catalog == {
++        "schema_version": "reuse-v1",
++        "documents": [
++            {
++                "doc_id": "conventions/index",
++                "kind": "convention_index",
++                "path": "ai-wiki/conventions/index.md",
++                "source": "user_owned",
++                "title": "Shared Conventions Index",
++            },
++            {
++                "doc_id": "conventions/typing",
++                "kind": "convention",
++                "path": "ai-wiki/conventions/typing.md",
++                "source": "user_owned",
++                "title": "Typing Rules",
++            },
++            {
++                "doc_id": "features/index",
++                "kind": "feature_index",
++                "path": "ai-wiki/features/index.md",
++                "source": "user_owned",
++                "title": "Feature Working Memory Index",
++            },
++            {
++                "doc_id": "features/search/index",
++                "kind": "feature_index",
++                "path": "ai-wiki/features/search/index.md",
++                "source": "user_owned",
++                "title": "Search Working Memory",
++            },
++            {
++                "doc_id": "problem-solutions/index",
++                "kind": "problem_solution_index",
++                "path": "ai-wiki/problem-solutions/index.md",
++                "source": "user_owned",
++                "title": "Problem-Solution Notes Index",
++            },
++            {
++                "doc_id": "problem-solutions/stale-cache",
++                "kind": "problem_solution",
++                "path": "ai-wiki/problem-solutions/stale-cache.md",
++                "source": "user_owned",
++                "title": "Stale Cache",
++            },
++        ],
++    }
++
++
+ def test_build_document_stats_aggregates_reuse_events(tmp_path: Path) -> None:
+     repo_wiki = tmp_path / "ai-wiki"
+     (repo_wiki / "metrics" / "reuse-events").mkdir(parents=True)

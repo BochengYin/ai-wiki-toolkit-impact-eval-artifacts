@@ -1,0 +1,26 @@
+ .github/workflows/publish-npm.yml           |  2 +-
+ .github/workflows/release-binaries.yml      | 61 +++++++++++++++++++++---
+ CHANGELOG.md                                | 10 ++++
+ README.md                                   |  6 +--
+ docs/homebrew-tap.md                        |  1 +
+ docs/npm-publish.md                         | 12 ++++-
+ docs/npm-wrapper.md                         |  9 +++-
+ docs/releasing.md                           | 33 ++++++++++---
+ npm/platform-targets.json                   | 31 ++++++++++++
+ npm/shared.js                               | 28 ++++++++++-
+ package.json                                |  9 +++-
+ scripts/build_linux_release_in_container.py | 22 +++++++--
+ scripts/check_linux_runtime_matrix.py       |  2 +-
+ src/ai_wiki_toolkit/homebrew_formula.py     |  7 ++-
+ src/ai_wiki_toolkit/npm_distribution.py     | 23 ++++++++-
+ src/ai_wiki_toolkit/release_build.py        | 14 ++++--
+ src/ai_wiki_toolkit/release_runtime.py      |  4 +-
+ tests/test_distribution_metadata.py         | 13 ++++-
+ tests/test_homebrew_formula.py              | 13 ++++-
+ tests/test_npm_wrapper.py                   | 74 +++++++++++++++++++++++++----
+ tests/test_release_artifacts.py             |  5 ++
+ tests/test_release_build.py                 | 15 +++++-
+ tests/test_release_runtime.py               |  4 +-
+ 23 files changed, 347 insertions(+), 51 deletions(-)
+ .../alpine-release-containers-need-posix-sh.md     | 28 ++++++++++++++++++++++
+ 1 file changed, 28 insertions(+)

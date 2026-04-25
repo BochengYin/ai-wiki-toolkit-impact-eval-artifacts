@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s01",
+  "prompt_level": "original",
+  "label": "partial",
+  "rubric_refs": [
+    "evals/impact/release_distribution_integrity_runbook.md"
+  ],
+  "evidence": [
+    "first_pass/workspace_diff.patch",
+    "first_pass/workspace_diff_stat.txt",
+    "first_pass/final_message.md",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s01/019dc288-8281-7142-953f-298720296637/visible_transcript.md",
+    "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions/s01/019dc288-8281-7142-953f-298720296637/visible_session.jsonl"
+  ],
+  "notes": "Broad release/npm expansion with workflow, npm target metadata, zip staging, docs, Homebrew, and tests. Scored partial because linux-musl-x64 uses python:3.11-alpine but does not install binutils/objdump or run setup as root, leaving an important coupled release-build gap.",
+  "scored_at": "2026-04-25T13:59:18"
+}

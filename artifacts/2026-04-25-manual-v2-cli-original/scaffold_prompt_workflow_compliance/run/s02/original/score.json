@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s02",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/scaffold_prompt_workflow_compliance/spec.toml",
+    "evals/impact/prompts/scaffold_prompt_workflow_compliance/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Added conventions/problems/features starter areas, correct clarify-before-code and capture-review-learning skills, managed team-memory schema, prompt/system guidance, doctor/catalog updates, README, and tests while preserving create-only user-owned docs.",
+  "scored_at": "2026-04-25T19:40:59"
+}

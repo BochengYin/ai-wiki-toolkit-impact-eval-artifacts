@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s04",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/windows_arm_smoke_cli_output/spec.toml",
+    "evals/impact/prompts/windows_arm_smoke_cli_output/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Fixed both release archive and npm-installed checks, added focused regression coverage for both paths, and passed full pytest.",
+  "scored_at": "2026-04-25T19:40:59"
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 2,
+  "slot": "s05",
+  "variant": "aiwiki_ambient_memory_workflow",
+  "prompt_level": "original",
+  "phase": "first_pass",
+  "workspace": "<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/slots/s05",
+  "captured_at": "2026-04-25T19:10:27",
+  "attempt": 1,
+  "human_nudges": 0,
+  "first_pass_success": null,
+  "changed_files": [
+    "README.md",
+    "ai-wiki/_toolkit/workflows.md",
+    "src/ai_wiki_toolkit/content.py",
+    "src/ai_wiki_toolkit/doctor.py",
+    "src/ai_wiki_toolkit/scaffold.py",
+    "tests/test_compatibility_scenarios.py",
+    "tests/test_doctor.py",
+    "tests/test_init_scenarios.py",
+    "tests/test_install_uninstall_scenarios.py",
+    "tests/test_prompt_scenarios.py"
+  ],
+  "untracked_files": [],
+  "notes": "Captured by run_cli_slots.py; Codex CLI return code: 0. Run-level sleep guard metadata is in sleep_guard.json."
+}

@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "validated_at": "2026-04-25T19:30:47",
+  "run_dir": "<eval-root>/scaffold_prompt_workflow_compliance/runs/cli-original-scaffold-20260425-1618",
+  "session_export_root": "<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/codex_sessions",
+  "shareable_for_causal_claims": true,
+  "critical_confounds": [],
+  "warnings": []
+}

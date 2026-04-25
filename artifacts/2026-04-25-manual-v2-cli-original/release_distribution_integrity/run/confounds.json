@@ -1,0 +1,9 @@
+{
+  "schema_version": 2,
+  "validated_at": "2026-04-25T14:58:13",
+  "run_dir": "<eval-root>/release_distribution_integrity/runs/cli-original-release-20260425-1246",
+  "session_export_root": "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/codex_sessions",
+  "shareable_for_causal_claims": true,
+  "critical_confounds": [],
+  "warnings": []
+}

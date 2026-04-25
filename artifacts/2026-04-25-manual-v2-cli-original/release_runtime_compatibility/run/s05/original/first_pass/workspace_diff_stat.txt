@@ -1,0 +1,14 @@
+ .github/workflows/publish-npm.yml      | 20 ++++++++++++
+ .github/workflows/release-binaries.yml | 46 +++++++++++++++++++++++++--
+ docs/npm-publish.md                    | 18 +++++++----
+ docs/releasing.md                      | 29 +++++++++++------
+ tests/test_distribution_metadata.py    | 58 ++++++++++++++++++++++++++++++++--
+ 5 files changed, 151 insertions(+), 20 deletions(-)
+ .../_toolkit/metrics/document-stats.json           | 78 ++++++++++++++++++++++
+ 1 file changed, 78 insertions(+)
+ .../_toolkit/metrics/task-stats.json               | 26 ++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+ /dev/null => ai-wiki/metrics/reuse-events/eval-user.jsonl | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+ /dev/null => ai-wiki/metrics/task-checks/eval-user.jsonl | 1 +
+ 1 file changed, 1 insertion(+)

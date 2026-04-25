@@ -1,0 +1,30 @@
+{
+  "schema_version": 2,
+  "slot": "s05",
+  "variant": "aiwiki_ambient_memory_workflow",
+  "prompt_level": "original",
+  "phase": "first_pass",
+  "workspace": "<eval-root>/release_runtime_compatibility/workspaces/20260425-160315/slots/s05",
+  "captured_at": "2026-04-25T17:32:13",
+  "attempt": 1,
+  "human_nudges": 0,
+  "first_pass_success": null,
+  "changed_files": [
+    ".github/workflows/publish-npm.yml",
+    ".github/workflows/release-binaries.yml",
+    "docs/npm-publish.md",
+    "docs/releasing.md",
+    "tests/test_distribution_metadata.py",
+    "ai-wiki/_toolkit/metrics/document-stats.json",
+    "ai-wiki/_toolkit/metrics/task-stats.json",
+    "ai-wiki/metrics/reuse-events/eval-user.jsonl",
+    "ai-wiki/metrics/task-checks/eval-user.jsonl"
+  ],
+  "untracked_files": [
+    "ai-wiki/_toolkit/metrics/document-stats.json",
+    "ai-wiki/_toolkit/metrics/task-stats.json",
+    "ai-wiki/metrics/reuse-events/eval-user.jsonl",
+    "ai-wiki/metrics/task-checks/eval-user.jsonl"
+  ],
+  "notes": "Captured by run_cli_slots.py; Codex CLI return code: 0. Run-level sleep guard metadata is in sleep_guard.json."
+}

@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s03",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/release_runtime_compatibility/spec.toml",
+    "evals/impact/prompts/release_runtime_compatibility/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Added a dedicated linux-x64 container build, runtime smoke matrix for node:24-bookworm and node:24-trixie before release publish, staged npm smoke before npm publish, docs, and tests.",
+  "scored_at": "2026-04-25T19:40:59"
+}

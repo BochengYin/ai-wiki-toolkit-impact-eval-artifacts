@@ -1,0 +1,10 @@
+ M README.md
+ M ai-wiki/_toolkit/workflows.md
+ M src/ai_wiki_toolkit/content.py
+ M src/ai_wiki_toolkit/doctor.py
+ M src/ai_wiki_toolkit/scaffold.py
+ M tests/test_compatibility_scenarios.py
+ M tests/test_doctor.py
+ M tests/test_init_scenarios.py
+ M tests/test_install_uninstall_scenarios.py
+ M tests/test_prompt_scenarios.py

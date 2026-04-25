@@ -1,0 +1,22 @@
+ .github/workflows/publish-npm.yml                  |  5 ++
+ .github/workflows/release-binaries.yml             | 59 +++++++++++++++++++--
+ ...ntime-checks-against-an-older-glibc-baseline.md | 16 ++++--
+ docs/npm-publish.md                                | 10 ++--
+ docs/npm-wrapper.md                                |  1 +
+ docs/releasing.md                                  | 28 +++++++---
+ tests/test_distribution_metadata.py                | 61 +++++++++++++++++++++-
+ 7 files changed, 160 insertions(+), 20 deletions(-)
+ .../_toolkit/metrics/document-stats.json           | 110 +++++++++++++++++++++
+ 1 file changed, 110 insertions(+)
+ .../_toolkit/metrics/task-stats.json               | 26 ++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+ /dev/null => ai-wiki/metrics/reuse-events/eval-user.jsonl | 13 +++++++++++++
+ 1 file changed, 13 insertions(+)
+ /dev/null => ai-wiki/metrics/task-checks/eval-user.jsonl | 1 +
+ 1 file changed, 1 insertion(+)
+ .../build_linux_release_in_container.sh            | 32 ++++++++++++++++++++++
+ 1 file changed, 32 insertions(+)
+ .../null => scripts/smoke_linux_release_runtime.sh | 36 ++++++++++++++++++++++
+ 1 file changed, 36 insertions(+)
+ .../smoke_staged_npm_linux_package.sh              | 33 ++++++++++++++++++++++
+ 1 file changed, 33 insertions(+)

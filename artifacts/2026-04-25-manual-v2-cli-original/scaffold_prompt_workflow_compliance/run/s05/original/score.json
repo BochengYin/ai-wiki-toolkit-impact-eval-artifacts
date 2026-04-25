@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s05",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/scaffold_prompt_workflow_compliance/spec.toml",
+    "evals/impact/prompts/scaffold_prompt_workflow_compliance/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Implemented the requested starter areas, skill templates, managed schema/workflow guidance, doctor checks, README, and compatibility tests; minor caveat is less catalog-kind coverage than other successful slots.",
+  "scored_at": "2026-04-25T19:40:59"
+}

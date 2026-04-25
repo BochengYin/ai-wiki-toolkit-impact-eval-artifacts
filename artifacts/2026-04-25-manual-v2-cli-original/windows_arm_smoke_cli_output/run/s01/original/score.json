@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s01",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/windows_arm_smoke_cli_output/spec.toml",
+    "evals/impact/prompts/windows_arm_smoke_cli_output/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Fixed both Windows ARM release-archive and npm-installed version checks to compare against full 'ai-wiki-toolkit <version>' output, added workflow regression coverage, and reported full pytest pass.",
+  "scored_at": "2026-04-25T19:40:58"
+}

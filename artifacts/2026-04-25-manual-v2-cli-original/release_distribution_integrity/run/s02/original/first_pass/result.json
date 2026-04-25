@@ -1,0 +1,41 @@
+{
+  "schema_version": 2,
+  "slot": "s02",
+  "variant": "aiwiki_scaffold_no_target_memory",
+  "prompt_level": "original",
+  "phase": "first_pass",
+  "workspace": "<eval-root>/release_distribution_integrity/workspaces/20260425-124642/slots/s02",
+  "captured_at": "2026-04-25T13:13:50",
+  "attempt": 1,
+  "human_nudges": 0,
+  "first_pass_success": null,
+  "changed_files": [
+    ".github/workflows/publish-npm.yml",
+    ".github/workflows/release-binaries.yml",
+    "README.md",
+    "docs/homebrew-tap.md",
+    "docs/npm-publish.md",
+    "docs/npm-wrapper.md",
+    "docs/releasing.md",
+    "npm/platform-targets.json",
+    "npm/shared.js",
+    "package.json",
+    "scripts/build_linux_release_in_container.py",
+    "scripts/check_linux_runtime_matrix.py",
+    "src/ai_wiki_toolkit/homebrew_formula.py",
+    "src/ai_wiki_toolkit/npm_distribution.py",
+    "src/ai_wiki_toolkit/release_build.py",
+    "src/ai_wiki_toolkit/release_runtime.py",
+    "tests/test_distribution_metadata.py",
+    "tests/test_homebrew_formula.py",
+    "tests/test_npm_wrapper.py",
+    "tests/test_release_artifacts.py",
+    "tests/test_release_build.py",
+    "tests/test_release_runtime.py",
+    "ai-wiki/people/eval-user/drafts/windows-npm-platform-packages-need-zip-aware-staging.md"
+  ],
+  "untracked_files": [
+    "ai-wiki/people/eval-user/drafts/windows-npm-platform-packages-need-zip-aware-staging.md"
+  ],
+  "notes": "Captured by run_cli_slots.py; Codex CLI return code: 0. Run-level sleep guard metadata is in sleep_guard.json."
+}

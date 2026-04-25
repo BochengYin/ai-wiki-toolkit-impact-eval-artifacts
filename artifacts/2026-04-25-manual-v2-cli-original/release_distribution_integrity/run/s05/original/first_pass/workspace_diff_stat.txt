@@ -1,0 +1,25 @@
+ .github/workflows/publish-npm.yml           |  2 +-
+ .github/workflows/release-binaries.yml      | 64 ++++++++++++++++++++++++++---
+ CHANGELOG.md                                | 10 +++++
+ README.md                                   |  4 +-
+ docs/homebrew-tap.md                        |  1 +
+ docs/npm-publish.md                         |  4 +-
+ docs/npm-wrapper.md                         | 10 +++--
+ docs/releasing.md                           | 28 ++++++++++---
+ npm/platform-targets.json                   | 31 ++++++++++++++
+ npm/shared.js                               | 52 ++++++++++++++++++++++-
+ package.json                                |  9 +++-
+ scripts/build_linux_release_in_container.py | 37 +++++++++++++++--
+ src/ai_wiki_toolkit/homebrew_formula.py     |  7 +++-
+ src/ai_wiki_toolkit/npm_distribution.py     | 25 ++++++++++-
+ src/ai_wiki_toolkit/release_build.py        | 55 +++++++++++++++++--------
+ src/ai_wiki_toolkit/release_runtime.py      |  4 +-
+ tests/test_distribution_metadata.py         | 37 +++++++++++++++--
+ tests/test_homebrew_formula.py              | 13 +++++-
+ tests/test_npm_wrapper.py                   | 57 +++++++++++++++++++++++--
+ tests/test_release_artifacts.py             |  4 ++
+ tests/test_release_build.py                 | 35 ++++++++++++++++
+ tests/test_release_runtime.py               | 12 +++++-
+ 22 files changed, 441 insertions(+), 60 deletions(-)
+ ...ges-need-libc-metadata-and-runtime-detection.md | 31 ++++++++++++++++++++++
+ 1 file changed, 31 insertions(+)

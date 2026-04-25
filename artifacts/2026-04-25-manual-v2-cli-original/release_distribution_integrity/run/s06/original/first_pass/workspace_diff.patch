@@ -1,0 +1,977 @@
+diff --git a/.github/workflows/publish-npm.yml b/.github/workflows/publish-npm.yml
+index c259fec..40d5379 100644
+--- a/.github/workflows/publish-npm.yml
++++ b/.github/workflows/publish-npm.yml
+@@ -95,7 +95,7 @@ jobs:
+           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+         run: |
+           version="${{ steps.release.outputs.tag }}"
+-          gh release download "$version" --pattern "ai-wiki-toolkit-${version}-*.tar.gz" --dir release-assets
++          gh release download "$version" --pattern "ai-wiki-toolkit-${version}-*" --dir release-assets
+ 
+       - name: Stage platform npm packages
+         run: >
+diff --git a/.github/workflows/release-binaries.yml b/.github/workflows/release-binaries.yml
+index 68f2458..788d504 100644
+--- a/.github/workflows/release-binaries.yml
++++ b/.github/workflows/release-binaries.yml
+@@ -36,7 +36,21 @@ jobs:
+           - runner: ubuntu-24.04
+             target: linux-x64
+             build_mode: container
+-            binary_path: dist/aiwiki-toolkit
++            docker_platform: linux/amd64
++            build_image: python:3.11-bookworm
++            setup_command: ""
++          - runner: ubuntu-24.04-arm
++            target: linux-arm64
++            build_mode: container
++            docker_platform: linux/arm64
++            build_image: python:3.11-bookworm
++            setup_command: ""
++          - runner: ubuntu-24.04
++            target: linux-musl-x64
++            build_mode: container
++            docker_platform: linux/amd64
++            build_image: python:3.11-alpine
++            setup_command: apk add --no-cache binutils
+           - runner: macos-15
+             target: macos-arm64
+             build_mode: host
+@@ -45,6 +59,14 @@ jobs:
+             target: macos-x64
+             build_mode: host
+             binary_path: dist/aiwiki-toolkit
++          - runner: windows-2022
++            target: windows-x64
++            build_mode: host
++            binary_path: dist/aiwiki-toolkit.exe
++          - runner: windows-11-arm
++            target: windows-arm64
++            build_mode: host
++            binary_path: dist/aiwiki-toolkit.exe
+ 
+     steps:
+       - name: Check out source
+@@ -75,11 +97,20 @@ jobs:
+           --specpath build/pyinstaller
+           src/ai_wiki_toolkit/cli.py
+ 
+-      - name: Build Linux release archive in bookworm container
++      - name: Build Linux release archive in container
+         if: ${{ matrix.build_mode == 'container' }}
+         run: >
+           PYTHONPATH=src python scripts/build_linux_release_in_container.py
+           --version "${{ github.ref_name }}"
++          --target "${{ matrix.target }}"
++          --image "${{ matrix.build_image }}"
++          --docker-platform "${{ matrix.docker_platform }}"
++          --setup-command "${{ matrix.setup_command }}"
++
++      - name: Verify standalone binary
++        if: ${{ matrix.build_mode == 'host' }}
++        run: >
++          python -c "import subprocess; subprocess.run([r'${{ matrix.binary_path }}', '--version'], check=True)"
+ 
+       - name: Package release archive
+         if: ${{ matrix.build_mode == 'host' }}
+@@ -98,9 +129,25 @@ jobs:
+           if-no-files-found: error
+ 
+   verify-linux-runtime:
+-    name: Verify Linux runtime matrix
+-    runs-on: ubuntu-24.04
++    name: Verify ${{ matrix.target }} runtime
++    runs-on: ${{ matrix.runner }}
+     needs: build
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - runner: ubuntu-24.04
++            target: linux-x64
++            docker_platform: linux/amd64
++            check_args: ""
++          - runner: ubuntu-24.04-arm
++            target: linux-arm64
++            docker_platform: linux/arm64
++            check_args: ""
++          - runner: ubuntu-24.04
++            target: linux-musl-x64
++            docker_platform: linux/amd64
++            check_args: "--check musl=node:24-alpine"
+ 
+     steps:
+       - name: Check out source
+@@ -114,13 +161,15 @@ jobs:
+       - name: Download Linux release archive
+         uses: actions/download-artifact@v4
+         with:
+-          name: release-linux-x64
++          name: release-${{ matrix.target }}
+           path: release-assets
+ 
+       - name: Verify Linux runtime compatibility
+         run: >
+           PYTHONPATH=src python scripts/check_linux_runtime_matrix.py
+-          --asset "release-assets/ai-wiki-toolkit-${{ github.ref_name }}-linux-x64.tar.gz"
++          --asset "release-assets/ai-wiki-toolkit-${{ github.ref_name }}-${{ matrix.target }}.tar.gz"
++          --docker-platform "${{ matrix.docker_platform }}"
++          ${{ matrix.check_args }}
+ 
+   publish:
+     name: Publish GitHub Release assets
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 7a19342..9ff1af9 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -4,6 +4,16 @@ All notable changes to `ai-wiki-toolkit` are documented in this file.
+ 
+ ## Unreleased
+ 
++### Added
++
++- Expanded release assets and npm platform packages to cover Linux arm64, Linux musl x64, Windows x64, and Windows arm64.
++- Added Windows `.zip` release archive staging for npm platform packages.
++
++### Changed
++
++- Extended the release workflow to build and verify the broader public distribution matrix.
++- Extended the generated Homebrew formula to include the Linux arm64 release asset.
++
+ ## v0.1.11
+ 
+ ### Added
+diff --git a/README.md b/README.md
+index 995079f..4c6ef98 100644
+--- a/README.md
++++ b/README.md
+@@ -116,7 +116,7 @@ The current scope is intentionally strict about compatibility:
+ 
+ ## Install
+ 
+-For end users on macOS and Linux, the simplest install paths are Homebrew and npm.
++For end users on macOS and Linux, the simplest install paths are Homebrew and npm. For Windows users, use npm.
+ 
+ ### Homebrew
+ 
+@@ -390,8 +390,8 @@ Even with `--purge-user-docs --yes`, the shared home wiki under `~/ai-wiki/syste
+ The public distribution model is:
+ 
+ - GitHub Releases are the source of truth for versioned release binaries
+-- Homebrew tap `BochengYin/tap` consumes those release assets for macOS and Linux users
+-- npm package `ai-wiki-toolkit` is a meta package that depends on platform-specific npm binary packages for macOS and Linux users who prefer `npm install -g`
++- Homebrew tap `BochengYin/tap` consumes those release assets for macOS and glibc Linux users
++- npm package `ai-wiki-toolkit` is a meta package that depends on platform-specific npm binary packages for macOS, glibc Linux, musl Linux, and Windows users who prefer `npm install -g`
+ 
+ The goal is to make end-user installation independent of a local Python setup, while keeping `pip install -e .` as the simplest contributor workflow inside this repository.
+ 
+diff --git a/docs/homebrew-tap.md b/docs/homebrew-tap.md
+index efbaf86..44a4503 100644
+--- a/docs/homebrew-tap.md
++++ b/docs/homebrew-tap.md
+@@ -39,6 +39,7 @@ It selects among these release assets:
+ 
+ - `ai-wiki-toolkit-vX.Y.Z-macos-arm64.tar.gz`
+ - `ai-wiki-toolkit-vX.Y.Z-macos-x64.tar.gz`
++- `ai-wiki-toolkit-vX.Y.Z-linux-arm64.tar.gz`
+ - `ai-wiki-toolkit-vX.Y.Z-linux-x64.tar.gz`
+ 
+ The formula installs the extracted `aiwiki-toolkit` executable into Homebrew’s `bin`.
+diff --git a/docs/npm-publish.md b/docs/npm-publish.md
+index 99193fd..72654e8 100644
+--- a/docs/npm-publish.md
++++ b/docs/npm-publish.md
+@@ -75,7 +75,7 @@ The workflow:
+ 4. selects npm publish auth mode:
+    - trusted publishing when no token secret is present
+    - token-based publish when `NPM_PUBLISH_TOKEN` is present
+-5. downloads the matching GitHub Release archives
++5. downloads the matching GitHub Release archives, including Unix `.tar.gz` archives and Windows `.zip` archives
+ 6. stages the platform npm packages from those archives
+ 7. publishes the platform npm packages
+ 8. runs `npm pack --dry-run --ignore-scripts` for the meta package
+@@ -91,6 +91,16 @@ The meta package is published from `package.json` in this repository, so its ver
+ 
+ The platform package versions are generated from that same root version and must be published before the meta package for the same release.
+ 
++The current npm platform package matrix is:
++
++- `ai-wiki-toolkit-darwin-arm64`
++- `ai-wiki-toolkit-darwin-x64`
++- `ai-wiki-toolkit-linux-arm64`
++- `ai-wiki-toolkit-linux-musl-x64`
++- `ai-wiki-toolkit-linux-x64`
++- `ai-wiki-toolkit-windows-arm64`
++- `ai-wiki-toolkit-windows-x64`
++
+ ## Optional Token-Based Fallback
+ 
+ This repository keeps trusted publishing as the default path, but now also includes a token-based fallback for bootstrap publishes.
+diff --git a/docs/npm-wrapper.md b/docs/npm-wrapper.md
+index 1e5947e..8a70fe3 100644
+--- a/docs/npm-wrapper.md
++++ b/docs/npm-wrapper.md
+@@ -36,11 +36,15 @@ The platform package map currently supports:
+ 
+ - `darwin-arm64` -> `macos-arm64`
+ - `darwin-x64` -> `macos-x64`
++- `linux-arm64` -> `linux-arm64`
++- `linux-musl-x64` -> `linux-musl-x64`
+ - `linux-x64` -> `linux-x64`
++- `win32-arm64` -> `windows-arm64`
++- `win32-x64` -> `windows-x64`
+ 
+-Unsupported platforms fail fast during installation.
++Linux npm installs use the package `libc` metadata and the runtime wrapper's libc detection so glibc and musl x64 machines resolve to different platform packages.
+ 
+-Windows is intentionally excluded from the public npm target map until the main release workflow publishes matching `windows-x64` assets.
++Unsupported platforms fail fast when the wrapper starts.
+ 
+ ## Why Keep It Thin
+ 
+@@ -80,5 +84,6 @@ The published npm package should continue to satisfy these constraints:
+ - the GitHub Releases are public and stable
+ - the asset naming is frozen
+ - the npm platform target map matches the current public release asset matrix
++- Windows platform packages are staged from `.zip` release archives and Unix-like platform packages are staged from `.tar.gz` release archives
+ - the npm package version always matches the Python package version
+ - npm trusted publishing is configured for the package
+diff --git a/docs/releasing.md b/docs/releasing.md
+index 6fbc1d2..8908bd7 100644
+--- a/docs/releasing.md
++++ b/docs/releasing.md
+@@ -10,9 +10,11 @@ The repository now includes a GitHub Actions workflow at `.github/workflows/rele
+ 2. installs the project with the `release` dependency group
+ 3. runs the test suite
+ 4. builds standalone binaries with PyInstaller
+-   - the Linux target is built inside a `python:3.11-bookworm` container so the shipped binary tracks an older glibc baseline
++   - glibc Linux targets are built inside `python:3.11-bookworm` containers so the shipped binaries track an older glibc baseline
++   - the musl Linux target is built inside a `python:3.11-alpine` container
++   - Windows targets are built on native Windows GitHub-hosted runners
+ 5. archives each binary into a release asset
+-6. verifies the Linux release archive by running `aiwiki-toolkit --version` in both older and current glibc container baselines
++6. verifies the Linux release archives by running `aiwiki-toolkit --version` in matching glibc or musl container baselines
+ 7. renders a Homebrew formula from the release archives
+ 8. creates or updates a GitHub Release for the tag
+ 9. optionally syncs the generated formula into a Homebrew tap repository
+@@ -24,11 +26,13 @@ This workflow is the base distribution layer for later package-manager integrati
+ 
+ The workflow currently builds these targets:
+ 
++- `linux-arm64`
++- `linux-musl-x64`
+ - `linux-x64`
+ - `macos-arm64`
+ - `macos-x64`
+-
+-Windows packaging remains implemented in the codebase, but it is currently excluded from the release matrix until the Windows test lane is stabilized.
++- `windows-arm64`
++- `windows-x64`
+ 
+ The target labels map to GitHub-hosted runners and determine the release asset names.
+ 
+@@ -43,12 +47,16 @@ ai-wiki-toolkit-vX.Y.Z-<target>.zip
+ 
+ Examples:
+ 
++- `ai-wiki-toolkit-v0.1.0-linux-arm64.tar.gz`
++- `ai-wiki-toolkit-v0.1.0-linux-musl-x64.tar.gz`
+ - `ai-wiki-toolkit-v0.1.0-linux-x64.tar.gz`
+ - `ai-wiki-toolkit-v0.1.0-macos-arm64.tar.gz`
++- `ai-wiki-toolkit-v0.1.0-windows-arm64.zip`
+ 
+ The archive contains a single executable:
+ 
+ - Unix-like targets: `aiwiki-toolkit`
++- Windows targets: `aiwiki-toolkit.exe`
+ 
+ ## Release Steps
+ 
+@@ -71,7 +79,7 @@ The archive contains a single executable:
+    ```
+ 
+ 5. Wait for the `Release Binaries` workflow to finish.
+-6. Confirm that the Linux runtime check passed in both the older and current glibc lanes.
++6. Confirm that the Linux runtime checks passed for the glibc and musl lanes.
+ 7. Verify that the GitHub Release for the tag contains all expected archives and `aiwiki-toolkit.rb`.
+ 8. Wait for the npm publish workflow to stage and publish the platform packages plus the meta package.
+ 9. If tap sync is enabled, verify that the tap repository received the updated `Formula/aiwiki-toolkit.rb`.
+@@ -87,7 +95,20 @@ PYTHONPATH=src python scripts/check_linux_runtime_matrix.py --asset release-asse
+ 
+ This path expects Docker locally. The build itself happens inside `python:3.11-bookworm`, so the host Python environment does not need the release extras installed.
+ 
+-Windows local dry runs can still be performed manually with `--binary dist/aiwiki-toolkit.exe --target windows-x64`, but that target is not part of the automated public release matrix yet.
++To dry-run the musl Linux target locally:
++
++```bash
++PYTHONPATH=src python scripts/build_linux_release_in_container.py \
++  --version v0.1.0 \
++  --target linux-musl-x64 \
++  --image python:3.11-alpine \
++  --setup-command "apk add --no-cache binutils"
++PYTHONPATH=src python scripts/check_linux_runtime_matrix.py \
++  --asset release-assets/ai-wiki-toolkit-v0.1.0-linux-musl-x64.tar.gz \
++  --check musl=node:24-alpine
++```
++
++Windows local dry runs can be performed on a Windows host with `--binary dist/aiwiki-toolkit.exe --target windows-x64` or `--target windows-arm64`.
+ 
+ ## Next Distribution Layers
+ 
+diff --git a/npm/platform-targets.json b/npm/platform-targets.json
+index 081af7d..83dbbe6 100644
+--- a/npm/platform-targets.json
++++ b/npm/platform-targets.json
+@@ -18,6 +18,37 @@
+     "release_target": "linux-x64",
+     "os": ["linux"],
+     "cpu": ["x64"],
++    "libc": ["glibc"],
+     "binary_name": "aiwiki-toolkit"
++  },
++  "linux-arm64": {
++    "package_name": "ai-wiki-toolkit-linux-arm64",
++    "release_target": "linux-arm64",
++    "os": ["linux"],
++    "cpu": ["arm64"],
++    "libc": ["glibc"],
++    "binary_name": "aiwiki-toolkit"
++  },
++  "linux-musl-x64": {
++    "package_name": "ai-wiki-toolkit-linux-musl-x64",
++    "release_target": "linux-musl-x64",
++    "os": ["linux"],
++    "cpu": ["x64"],
++    "libc": ["musl"],
++    "binary_name": "aiwiki-toolkit"
++  },
++  "win32-x64": {
++    "package_name": "ai-wiki-toolkit-windows-x64",
++    "release_target": "windows-x64",
++    "os": ["win32"],
++    "cpu": ["x64"],
++    "binary_name": "aiwiki-toolkit.exe"
++  },
++  "win32-arm64": {
++    "package_name": "ai-wiki-toolkit-windows-arm64",
++    "release_target": "windows-arm64",
++    "os": ["win32"],
++    "cpu": ["arm64"],
++    "binary_name": "aiwiki-toolkit.exe"
+   }
+ }
+diff --git a/npm/shared.js b/npm/shared.js
+index 1b429e7..73b27f3 100644
+--- a/npm/shared.js
++++ b/npm/shared.js
+@@ -1,8 +1,31 @@
+ const path = require("path");
+ const TARGETS = require("./platform-targets.json");
+ 
+-function currentTarget(platform = process.platform, arch = process.arch) {
+-  return TARGETS[`${platform}-${arch}`] || null;
++function currentLibc(platform = process.platform) {
++  if (platform !== "linux") {
++    return null;
++  }
++
++  if (process.report && typeof process.report.getReport === "function") {
++    const header = process.report.getReport().header || {};
++    if (header.glibcVersionRuntime || header.glibcVersionCompiler) {
++      return "glibc";
++    }
++  }
++
++  return "musl";
++}
++
++function currentTarget(
++  platform = process.platform,
++  arch = process.arch,
++  libc = currentLibc(platform),
++) {
++  const targetKey =
++    platform === "linux" && libc === "musl"
++      ? `${platform}-musl-${arch}`
++      : `${platform}-${arch}`;
++  return TARGETS[targetKey] || null;
+ }
+ 
+ function resolvePlatformPackageRoot(targetInfo) {
+@@ -22,6 +45,7 @@ function installedBinaryPath(targetInfo) {
+ 
+ module.exports = {
+   TARGETS,
++  currentLibc,
+   currentTarget,
+   installedBinaryPath,
+   resolvePlatformPackageRoot,
+diff --git a/package.json b/package.json
+index 0acf1d6..c8f44dd 100644
+--- a/package.json
++++ b/package.json
+@@ -19,7 +19,8 @@
+   ],
+   "os": [
+     "darwin",
+-    "linux"
++    "linux",
++    "win32"
+   ],
+   "engines": {
+     "node": ">=18"
+@@ -31,6 +32,10 @@
+   "optionalDependencies": {
+     "ai-wiki-toolkit-darwin-arm64": "0.1.11",
+     "ai-wiki-toolkit-darwin-x64": "0.1.11",
+-    "ai-wiki-toolkit-linux-x64": "0.1.11"
++    "ai-wiki-toolkit-linux-arm64": "0.1.11",
++    "ai-wiki-toolkit-linux-musl-x64": "0.1.11",
++    "ai-wiki-toolkit-linux-x64": "0.1.11",
++    "ai-wiki-toolkit-windows-arm64": "0.1.11",
++    "ai-wiki-toolkit-windows-x64": "0.1.11"
+   }
+ }
+diff --git a/scripts/build_linux_release_in_container.py b/scripts/build_linux_release_in_container.py
+index be8dba2..03e379c 100644
+--- a/scripts/build_linux_release_in_container.py
++++ b/scripts/build_linux_release_in_container.py
+@@ -1,4 +1,4 @@
+-"""Build the linux-x64 release archive inside a Dockerized bookworm baseline."""
++"""Build a Linux release archive inside a Dockerized baseline."""
+ 
+ from __future__ import annotations
+ 
+@@ -39,6 +39,21 @@ def build_parser() -> argparse.ArgumentParser:
+         default=DEFAULT_DOCKER_PLATFORM,
+         help="Docker platform passed to docker run. Defaults to linux/amd64.",
+     )
++    parser.add_argument(
++        "--setup-command",
++        default="",
++        help="Optional shell command to run in the container before creating the venv.",
++    )
++    parser.add_argument(
++        "--target",
++        default=DEFAULT_LINUX_CONTAINER_BUILD.target,
++        help="Release target passed to build_release_archive.py.",
++    )
++    parser.add_argument(
++        "--output-dir",
++        default=DEFAULT_LINUX_CONTAINER_BUILD.output_dir,
++        help="Output directory for the release archive inside the mounted repository.",
++    )
+     return parser
+ 
+ 
+@@ -48,8 +63,9 @@ def main() -> None:
+     config = LinuxContainerBuildConfig(
+         image=args.image,
+         docker_platform=args.docker_platform,
+-        target=DEFAULT_LINUX_CONTAINER_BUILD.target,
+-        output_dir=DEFAULT_LINUX_CONTAINER_BUILD.output_dir,
++        setup_command=args.setup_command,
++        target=args.target,
++        output_dir=args.output_dir,
+         venv_dir=DEFAULT_LINUX_CONTAINER_BUILD.venv_dir,
+         dist_dir=DEFAULT_LINUX_CONTAINER_BUILD.dist_dir,
+         pyinstaller_work_dir=DEFAULT_LINUX_CONTAINER_BUILD.pyinstaller_work_dir,
+diff --git a/scripts/check_linux_runtime_matrix.py b/scripts/check_linux_runtime_matrix.py
+index c0164f2..4faad2c 100644
+--- a/scripts/check_linux_runtime_matrix.py
++++ b/scripts/check_linux_runtime_matrix.py
+@@ -1,4 +1,4 @@
+-"""Verify a Linux release asset against older and current glibc baselines."""
++"""Verify a Linux release asset against configured container runtime baselines."""
+ 
+ from __future__ import annotations
+ 
+diff --git a/src/ai_wiki_toolkit/homebrew_formula.py b/src/ai_wiki_toolkit/homebrew_formula.py
+index 862d5f4..aae6c12 100644
+--- a/src/ai_wiki_toolkit/homebrew_formula.py
++++ b/src/ai_wiki_toolkit/homebrew_formula.py
+@@ -11,7 +11,7 @@ from ai_wiki_toolkit.release_artifacts import release_archive_name
+ DEFAULT_DESCRIPTION = "Local-first scaffold for repo-local and home-level AI wiki prompts"
+ FORMULA_CLASS_NAME = "AiwikiToolkit"
+ FORMULA_FILENAME = "aiwiki-toolkit.rb"
+-BREW_TARGETS = ("macos-arm64", "macos-x64", "linux-x64")
++BREW_TARGETS = ("macos-arm64", "macos-x64", "linux-arm64", "linux-x64")
+ 
+ 
+ @dataclass(frozen=True)
+@@ -87,6 +87,11 @@ def render_homebrew_formula(
+             "  end",
+             "",
+             "  on_linux do",
++            "    on_arm do",
++            f'      url "{release_asset_url(repository, version, "linux-arm64")}"',
++            f'      sha256 "{asset_map["linux-arm64"].sha256}"',
++            "    end",
++            "",
+             "    on_intel do",
+             f'      url "{release_asset_url(repository, version, "linux-x64")}"',
+             f'      sha256 "{asset_map["linux-x64"].sha256}"',
+diff --git a/src/ai_wiki_toolkit/npm_distribution.py b/src/ai_wiki_toolkit/npm_distribution.py
+index d1f8f18..fe6c1aa 100644
+--- a/src/ai_wiki_toolkit/npm_distribution.py
++++ b/src/ai_wiki_toolkit/npm_distribution.py
+@@ -7,6 +7,7 @@ import json
+ from pathlib import Path
+ import shutil
+ import tarfile
++import zipfile
+ 
+ from ai_wiki_toolkit.release_artifacts import release_archive_path
+ 
+@@ -16,6 +17,7 @@ PLATFORM_TARGETS_PATH = REPOSITORY_ROOT / "npm" / "platform-targets.json"
+ REPOSITORY_URL = "https://github.com/BochengYin/ai-wiki-toolkit"
+ REPOSITORY_BUGS_URL = f"{REPOSITORY_URL}/issues"
+ ROOT_PACKAGE_NAME = "ai-wiki-toolkit"
++CLI_COMMAND_NAME = "aiwiki-toolkit"
+ 
+ 
+ @dataclass(frozen=True)
+@@ -25,6 +27,7 @@ class PlatformPackage:
+     release_target: str
+     os: tuple[str, ...]
+     cpu: tuple[str, ...]
++    libc: tuple[str, ...]
+     binary_name: str
+ 
+ 
+@@ -37,6 +40,7 @@ def load_platform_packages(config_path: Path = PLATFORM_TARGETS_PATH) -> tuple[P
+             release_target=config["release_target"],
+             os=tuple(config["os"]),
+             cpu=tuple(config["cpu"]),
++            libc=tuple(config.get("libc", ())),
+             binary_name=config["binary_name"],
+         )
+         for node_target, config in raw.items()
+@@ -70,9 +74,11 @@ def render_platform_package_json(package: PlatformPackage, version: str) -> str:
+         "os": list(package.os),
+         "cpu": list(package.cpu),
+         "bin": {
+-            package.binary_name: f"bin/{package.binary_name}",
++            CLI_COMMAND_NAME: f"bin/{package.binary_name}",
+         },
+     }
++    if package.libc:
++        payload["libc"] = list(package.libc)
+     return json.dumps(payload, indent=2) + "\n"
+ 
+ 
+@@ -97,6 +103,20 @@ def render_platform_package_readme(package: PlatformPackage, version: str) -> st
+ 
+ 
+ def extract_release_binary(asset_path: Path, destination: Path) -> None:
++    destination.parent.mkdir(parents=True, exist_ok=True)
++
++    if asset_path.suffix == ".zip":
++        with zipfile.ZipFile(asset_path) as archive:
++            members = [member for member in archive.infolist() if not member.is_dir()]
++            if len(members) != 1:
++                raise ValueError(f"expected exactly one file in {asset_path}, found {len(members)}")
++
++            with archive.open(members[0]) as extracted, destination.open("wb") as output:
++                shutil.copyfileobj(extracted, output)
++
++        destination.chmod(0o755)
++        return
++
+     with tarfile.open(asset_path, "r:gz") as archive:
+         members = [member for member in archive.getmembers() if member.isfile()]
+         if len(members) != 1:
+@@ -107,7 +127,6 @@ def extract_release_binary(asset_path: Path, destination: Path) -> None:
+         if extracted is None:
+             raise ValueError(f"could not extract {member.name} from {asset_path}")
+ 
+-        destination.parent.mkdir(parents=True, exist_ok=True)
+         with destination.open("wb") as output:
+             shutil.copyfileobj(extracted, output)
+ 
+diff --git a/src/ai_wiki_toolkit/release_build.py b/src/ai_wiki_toolkit/release_build.py
+index e2fc985..b441fb7 100644
+--- a/src/ai_wiki_toolkit/release_build.py
++++ b/src/ai_wiki_toolkit/release_build.py
+@@ -19,6 +19,7 @@ DEFAULT_CONTAINER_HOME = "/tmp/aiwiki-release-home"
+ class LinuxContainerBuildConfig:
+     image: str = DEFAULT_LINUX_BUILD_IMAGE
+     docker_platform: str = DEFAULT_DOCKER_PLATFORM
++    setup_command: str = ""
+     workspace_dir: str = DEFAULT_WORKSPACE_DIR
+     container_home: str = DEFAULT_CONTAINER_HOME
+     target: str = "linux-x64"
+@@ -39,10 +40,14 @@ def linux_build_inner_command(version: str, config: LinuxContainerBuildConfig) -
+     target = shlex.quote(config.target)
+     normalized_version = shlex.quote(version)
+ 
+-    return "\n".join(
++    lines = [
++        "set -eu",
++        "mkdir -p \"$HOME\"",
++    ]
++    if config.setup_command:
++        lines.append(config.setup_command)
++    lines.extend(
+         [
+-            "set -eu",
+-            "mkdir -p \"$HOME\"",
+             f"rm -rf {shlex.quote(config.venv_dir)}",
+             f"rm -rf {shlex.quote(config.dist_dir)}",
+             f"rm -rf {shlex.quote(config.pyinstaller_work_dir)}",
+@@ -68,6 +73,7 @@ def linux_build_inner_command(version: str, config: LinuxContainerBuildConfig) -
+             ),
+         ]
+     )
++    return "\n".join(lines)
+ 
+ 
+ def docker_build_args(
+@@ -92,7 +98,7 @@ def docker_build_args(
+         "-w",
+         config.workspace_dir,
+         config.image,
+-        "bash",
++        "sh",
+         "-lc",
+         linux_build_inner_command(version, config),
+     ]
+diff --git a/src/ai_wiki_toolkit/release_runtime.py b/src/ai_wiki_toolkit/release_runtime.py
+index 7e5c9de..57cb6d6 100644
+--- a/src/ai_wiki_toolkit/release_runtime.py
++++ b/src/ai_wiki_toolkit/release_runtime.py
+@@ -40,7 +40,7 @@ def linux_runtime_inner_command(asset_name: str) -> str:
+             "set -eu",
+             "mkdir -p /work",
+             f"tar -xzf {archive_path} -C /work",
+-            "ldd --version | head -n1",
++            "if command -v ldd >/dev/null 2>&1; then ldd --version 2>&1 | head -n1 || true; fi",
+             f"{binary_path} --version",
+         ]
+     )
+@@ -61,7 +61,7 @@ def docker_run_args(
+         "-v",
+         f"{asset_path.parent.resolve()}:/release-assets:ro",
+         check.image,
+-        "bash",
++        "sh",
+         "-lc",
+         linux_runtime_inner_command(asset_path.name),
+     ]
+diff --git a/tests/test_distribution_metadata.py b/tests/test_distribution_metadata.py
+index 647ce66..4a63a79 100644
+--- a/tests/test_distribution_metadata.py
++++ b/tests/test_distribution_metadata.py
+@@ -9,6 +9,15 @@ from ai_wiki_toolkit import __version__
+ from ai_wiki_toolkit.npm_distribution import expected_optional_dependencies, load_platform_packages
+ 
+ ROOT = Path(__file__).resolve().parents[1]
++PUBLIC_RELEASE_TARGETS = {
++    "linux-arm64",
++    "linux-musl-x64",
++    "linux-x64",
++    "macos-arm64",
++    "macos-x64",
++    "windows-arm64",
++    "windows-x64",
++}
+ 
+ 
+ def _release_workflow_targets() -> set[str]:
+@@ -27,6 +36,8 @@ def test_npm_wrapper_targets_are_subset_of_release_workflow_targets() -> None:
+     release_targets = _release_workflow_targets()
+ 
+     assert npm_targets <= release_targets
++    assert PUBLIC_RELEASE_TARGETS <= release_targets
++    assert npm_targets == PUBLIC_RELEASE_TARGETS
+ 
+ 
+ def test_public_package_metadata_includes_license_and_repository_links() -> None:
+@@ -37,7 +48,7 @@ def test_public_package_metadata_includes_license_and_repository_links() -> None
+     assert package_json["license"] == "MIT"
+     assert package_json["homepage"] == "https://github.com/BochengYin/ai-wiki-toolkit#readme"
+     assert package_json["bugs"]["url"] == "https://github.com/BochengYin/ai-wiki-toolkit/issues"
+-    assert package_json["os"] == ["darwin", "linux"]
++    assert package_json["os"] == ["darwin", "linux", "win32"]
+     assert package_json["optionalDependencies"] == expected_optional_dependencies(__version__)
+ 
+     assert pyproject["project"]["license"] == "MIT"
+diff --git a/tests/test_homebrew_formula.py b/tests/test_homebrew_formula.py
+index 16135f0..41254e1 100644
+--- a/tests/test_homebrew_formula.py
++++ b/tests/test_homebrew_formula.py
+@@ -31,13 +31,19 @@ def test_formula_assets_from_directory_reads_expected_archives(tmp_path: Path) -
+     for filename in (
+         "ai-wiki-toolkit-v0.1.0-macos-arm64.tar.gz",
+         "ai-wiki-toolkit-v0.1.0-macos-x64.tar.gz",
++        "ai-wiki-toolkit-v0.1.0-linux-arm64.tar.gz",
+         "ai-wiki-toolkit-v0.1.0-linux-x64.tar.gz",
+     ):
+         (tmp_path / filename).write_text(filename, encoding="utf-8")
+ 
+     assets = formula_assets_from_directory(tmp_path, "v0.1.0")
+ 
+-    assert [asset.target for asset in assets] == ["macos-arm64", "macos-x64", "linux-x64"]
++    assert [asset.target for asset in assets] == [
++        "macos-arm64",
++        "macos-x64",
++        "linux-arm64",
++        "linux-x64",
++    ]
+ 
+ 
+ def test_render_homebrew_formula_includes_expected_urls_and_checksums() -> None:
+@@ -48,7 +54,8 @@ def test_render_homebrew_formula_includes_expected_urls_and_checksums() -> None:
+         assets=[
+             FormulaAsset("macos-arm64", "a" * 64),
+             FormulaAsset("macos-x64", "b" * 64),
+-            FormulaAsset("linux-x64", "c" * 64),
++            FormulaAsset("linux-arm64", "c" * 64),
++            FormulaAsset("linux-x64", "d" * 64),
+         ],
+     )
+ 
+@@ -58,4 +65,6 @@ def test_render_homebrew_formula_includes_expected_urls_and_checksums() -> None:
+     assert 'license "MIT"' in formula
+     assert 'url "https://github.com/example/ai-wiki-toolkit/releases/download/v0.1.0/ai-wiki-toolkit-v0.1.0-macos-arm64.tar.gz"' in formula
+     assert 'sha256 "' + ("a" * 64) + '"' in formula
++    assert 'url "https://github.com/example/ai-wiki-toolkit/releases/download/v0.1.0/ai-wiki-toolkit-v0.1.0-linux-arm64.tar.gz"' in formula
++    assert 'sha256 "' + ("c" * 64) + '"' in formula
+     assert 'assert_match version.to_s, shell_output("#{bin}/aiwiki-toolkit --version")' in formula
+diff --git a/tests/test_npm_wrapper.py b/tests/test_npm_wrapper.py
+index 88f688d..7a95ae8 100644
+--- a/tests/test_npm_wrapper.py
++++ b/tests/test_npm_wrapper.py
+@@ -5,6 +5,7 @@ from pathlib import Path
+ import shutil
+ import subprocess
+ import tarfile
++import zipfile
+ 
+ import pytest
+ from ai_wiki_toolkit import __version__
+@@ -14,7 +15,7 @@ from ai_wiki_toolkit.npm_distribution import (
+     render_platform_package_json,
+     stage_platform_packages,
+ )
+-from ai_wiki_toolkit.release_artifacts import release_archive_name
++from ai_wiki_toolkit.release_artifacts import archive_extension, release_archive_name
+ 
+ ROOT = Path(__file__).resolve().parents[1]
+ 
+@@ -39,7 +40,37 @@ def test_npm_wrapper_files_exist() -> None:
+     assert (ROOT / "npm" / "platform-targets.json").exists()
+ 
+ 
+-def _current_npm_target() -> str | None:
++def test_npm_shared_resolves_linux_libc_and_windows_targets() -> None:
++    node = shutil.which("node")
++    if node is None:
++        pytest.skip("node is not available")
++
++    result = subprocess.run(
++        [
++            node,
++            "-e",
++            "const { currentTarget } = require('./npm/shared');"
++            "const checks = {"
++            "glibc: currentTarget('linux', 'x64', 'glibc').release_target,"
++            "musl: currentTarget('linux', 'x64', 'musl').release_target,"
++            "winArm: currentTarget('win32', 'arm64').release_target"
++            "};"
++            "process.stdout.write(JSON.stringify(checks));",
++        ],
++        cwd=ROOT,
++        capture_output=True,
++        text=True,
++        check=True,
++    )
++
++    assert json.loads(result.stdout) == {
++        "glibc": "linux-x64",
++        "musl": "linux-musl-x64",
++        "winArm": "windows-arm64",
++    }
++
++
++def _current_npm_release_target() -> str | None:
+     node = shutil.which("node")
+     if node is None:
+         return None
+@@ -50,7 +81,7 @@ def _current_npm_target() -> str | None:
+             "-e",
+             "const { currentTarget } = require('./npm/shared');"
+             "const target = currentTarget();"
+-            "process.stdout.write(target ? `${process.platform}-${process.arch}` : '');",
++            "process.stdout.write(target ? target.release_target : '');",
+         ],
+         cwd=ROOT,
+         capture_output=True,
+@@ -67,12 +98,12 @@ def test_npm_bin_invokes_installed_platform_binary(tmp_path: Path) -> None:
+     if node is None:
+         pytest.skip("node is not available")
+ 
+-    node_target = _current_npm_target()
+-    if node_target is None:
++    release_target = _current_npm_release_target()
++    if release_target is None:
+         pytest.skip("current platform is not supported by the npm meta package")
+ 
+     package = next(
+-        package for package in load_platform_packages() if package.node_target == node_target
++        package for package in load_platform_packages() if package.release_target == release_target
+     )
+ 
+     package_dir = tmp_path / "package"
+@@ -110,8 +141,12 @@ def test_stage_platform_packages_creates_publishable_directories(tmp_path: Path)
+         archive_path = asset_dir / release_archive_name(__version__, package.release_target)
+         payload = tmp_path / f"{package.release_target}-{package.binary_name}"
+         payload.write_text("binary payload\n", encoding="utf-8")
+-        with tarfile.open(archive_path, "w:gz") as archive:
+-            archive.add(payload, arcname=package.binary_name)
++        if archive_extension(package.release_target) == "zip":
++            with zipfile.ZipFile(archive_path, "w") as archive:
++                archive.write(payload, arcname=package.binary_name)
++        else:
++            with tarfile.open(archive_path, "w:gz") as archive:
++                archive.add(payload, arcname=package.binary_name)
+ 
+     staged = stage_platform_packages(
+         version=__version__,
+@@ -128,4 +163,25 @@ def test_stage_platform_packages_creates_publishable_directories(tmp_path: Path)
+         platform_readme = (package_dir / "README.md").read_text(encoding="utf-8")
+         assert root_readme in platform_readme
+         assert (package_dir / "LICENSE").exists()
+-        assert (package_dir / "bin" / "aiwiki-toolkit").exists()
++        package = next(
++            package for package in load_platform_packages() if package.package_name == package_json["name"]
++        )
++        assert (package_dir / "bin" / package.binary_name).exists()
++
++
++def test_render_platform_package_json_includes_libc_and_windows_binary_name() -> None:
++    linux_musl = next(
++        package for package in load_platform_packages() if package.release_target == "linux-musl-x64"
++    )
++    windows_arm64 = next(
++        package for package in load_platform_packages() if package.release_target == "windows-arm64"
++    )
++
++    linux_payload = json.loads(render_platform_package_json(linux_musl, __version__))
++    windows_payload = json.loads(render_platform_package_json(windows_arm64, __version__))
++
++    assert linux_payload["libc"] == ["musl"]
++    assert linux_payload["bin"] == {"aiwiki-toolkit": "bin/aiwiki-toolkit"}
++    assert windows_payload["os"] == ["win32"]
++    assert windows_payload["cpu"] == ["arm64"]
++    assert windows_payload["bin"] == {"aiwiki-toolkit": "bin/aiwiki-toolkit.exe"}
+diff --git a/tests/test_release_artifacts.py b/tests/test_release_artifacts.py
+index 5be65f6..ee81103 100644
+--- a/tests/test_release_artifacts.py
++++ b/tests/test_release_artifacts.py
+@@ -21,16 +21,21 @@ def test_normalized_version_preserves_existing_prefix() -> None:
+ 
+ def test_binary_filename_uses_exe_for_windows() -> None:
+     assert binary_filename("windows-x64") == "aiwiki-toolkit.exe"
++    assert binary_filename("windows-arm64") == "aiwiki-toolkit.exe"
+ 
+ 
+ def test_binary_filename_uses_plain_name_for_unix() -> None:
+     assert binary_filename("linux-x64") == "aiwiki-toolkit"
++    assert binary_filename("linux-arm64") == "aiwiki-toolkit"
++    assert binary_filename("linux-musl-x64") == "aiwiki-toolkit"
+     assert binary_filename("macos-arm64") == "aiwiki-toolkit"
+ 
+ 
+ def test_archive_extension_matches_target_family() -> None:
+     assert archive_extension("windows-x64") == "zip"
++    assert archive_extension("windows-arm64") == "zip"
+     assert archive_extension("linux-x64") == "tar.gz"
++    assert archive_extension("linux-musl-x64") == "tar.gz"
+ 
+ 
+ def test_release_archive_name_is_stable() -> None:
+diff --git a/tests/test_release_build.py b/tests/test_release_build.py
+index c733845..6e8e933 100644
+--- a/tests/test_release_build.py
++++ b/tests/test_release_build.py
+@@ -33,6 +33,19 @@ def test_linux_build_inner_command_runs_tests_and_packages_archive() -> None:
+     assert "--output-dir release-assets" in command
+ 
+ 
++def test_linux_build_inner_command_supports_musl_target_setup() -> None:
++    config = LinuxContainerBuildConfig(
++        image="python:3.11-alpine",
++        setup_command="apk add --no-cache binutils",
++        target="linux-musl-x64",
++    )
++
++    command = linux_build_inner_command("v0.1.7", config)
++
++    assert "apk add --no-cache binutils" in command
++    assert "--target linux-musl-x64" in command
++
++
+ def test_docker_build_args_mount_repo_and_use_bookworm_image() -> None:
+     repo_root = Path("/tmp/repo root")
+ 
+@@ -56,7 +69,7 @@ def test_docker_build_args_mount_repo_and_use_bookworm_image() -> None:
+         "-w",
+         "/workspace",
+         DEFAULT_LINUX_BUILD_IMAGE,
+-        "bash",
++        "sh",
+     ]
+     assert "build/linux-release-venv/bin/python -m pytest" in command[18]
+ 
+diff --git a/tests/test_release_runtime.py b/tests/test_release_runtime.py
+index 1a48016..eca6e2d 100644
+--- a/tests/test_release_runtime.py
++++ b/tests/test_release_runtime.py
+@@ -45,9 +45,9 @@ def test_docker_run_args_mounts_release_assets_and_runs_version() -> None:
+         "-v",
+     ]
+     assert command[6] == f"{asset_path.parent.resolve()}:/release-assets:ro"
+-    assert command[7:10] == ["node:24-bookworm", "bash", "-lc"]
++    assert command[7:10] == ["node:24-bookworm", "sh", "-lc"]
+     assert "/release-assets/ai-wiki-toolkit-v0.1.7-linux-x64.tar.gz" in command[10]
+-    assert "ldd --version" in command[10]
++    assert "ldd --version 2>&1 | head -n1 || true" in command[10]
+     assert "/work/aiwiki-toolkit --version" in command[10]
+ 
+ 
+diff --git a/ai-wiki/people/eval-user/drafts/alpine-release-containers-need-posix-sh.md b/ai-wiki/people/eval-user/drafts/alpine-release-containers-need-posix-sh.md
+new file mode 100644
+index 0000000..b64ce9c
+--- /dev/null
++++ b/ai-wiki/people/eval-user/drafts/alpine-release-containers-need-posix-sh.md
+@@ -0,0 +1,28 @@
++---
++title: "Alpine release containers need POSIX sh"
++author_handle: "eval-user"
++model: "codex"
++source_kind: "task"
++status: "draft"
++created_at: "2026-04-25"
++updated_at: "2026-04-25"
++promotion_candidate: false
++promotion_basis: ""
++---
++# Alpine Release Containers Need POSIX Sh
++
++## Observation
++
++When adding `linux-musl-x64` release builds with a `python:3.11-alpine` container, the existing Docker helper could not assume `bash` was available. Alpine images provide `/bin/sh` by default, while Debian-based images also work with `sh -lc`.
++
++## Reusable Lesson
++
++Release helper code that needs to support both Debian and Alpine containers should use POSIX `sh -lc` unless it explicitly installs Bash before invoking the command shell.
++
++## Scope
++
++Applies to Linux release-build and runtime-verification helpers that run commands inside Docker images from different base distributions.
++
++## Source Pointer
++
++Captured while expanding the public release and npm distribution matrix to include `linux-musl-x64`.

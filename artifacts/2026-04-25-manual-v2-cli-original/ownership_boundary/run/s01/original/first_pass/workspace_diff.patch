@@ -1,0 +1,629 @@
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 10fae6a..c0e3e34 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -4,6 +4,10 @@ All notable changes to `ai-wiki-toolkit` are documented in this file.
+ 
+ ## Unreleased
+ 
++### Added
++
++- Added `aiwiki-toolkit contributor` helpers for the repository branch-and-PR workflow.
++
+ ## v0.1.9
+ 
+ ### Added
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 7d2bcf8..4da95dc 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -17,15 +17,39 @@ Use GitHub Issues as the default place for feedback.
+ 
+ Please do not work directly on `main`.
+ 
+-Use a topic branch for your change:
++Start each change from a new contributor branch. Branch names must use one of these forms:
++
++- `feature/YYYY_MM_DD_description`
++- `chore/YYYY_MM_DD_description`
++- `fix/YYYY_MM_DD_description`
++
++Use the helper when available:
++
++```bash
++aiwiki-toolkit contributor start feature "short description"
++```
++
++This syncs `main` with `git pull --ff-only` and creates a branch such as `feature/2026_04_25_short_description`.
++
++Or run the equivalent commands manually:
+ 
+ ```bash
+ git switch main
+ git pull --ff-only
+-git switch -c your-branch-name
++git switch -c feature/YYYY_MM_DD_description
++```
++
++Then push that branch and open a pull request:
++
++```bash
++aiwiki-toolkit contributor push
+ ```
+ 
+-Then push that branch and open a pull request.
++The equivalent manual command is:
++
++```bash
++git push -u origin feature/YYYY_MM_DD_description
++```
+ 
+ The intended merge path for this repository is:
+ 
+@@ -36,6 +60,12 @@ The intended merge path for this repository is:
+ 
+ After the PR is merged, switch back to `main` locally and sync before starting the next task:
+ 
++```bash
++aiwiki-toolkit contributor finish
++```
++
++The equivalent manual commands are:
++
+ ```bash
+ git switch main
+ git pull --ff-only
+diff --git a/src/ai_wiki_toolkit/cli.py b/src/ai_wiki_toolkit/cli.py
+index 9a8bded..ff7ccf4 100644
+--- a/src/ai_wiki_toolkit/cli.py
++++ b/src/ai_wiki_toolkit/cli.py
+@@ -2,9 +2,18 @@
+ 
+ from __future__ import annotations
+ 
++from datetime import date, datetime
++
+ import typer
+ 
+ from ai_wiki_toolkit import __version__
++from ai_wiki_toolkit.contributor_workflow import (
++    ContributorWorkflowError,
++    build_contributor_branch_name,
++    finish_contributor_branch,
++    push_contributor_branch,
++    start_contributor_branch,
++)
+ from ai_wiki_toolkit.doctor import run_doctor
+ from ai_wiki_toolkit.paths import RepoRootNotFoundError
+ from ai_wiki_toolkit.reuse_events import (
+@@ -24,6 +33,8 @@ from ai_wiki_toolkit.scaffold import (
+ )
+ 
+ app = typer.Typer(help="Initialize and maintain ai-wiki-toolkit scaffolds.")
++contributor_app = typer.Typer(help="Contributor branch-and-PR workflow helpers.")
++app.add_typer(contributor_app, name="contributor")
+ 
+ 
+ def _version_callback(value: bool) -> None:
+@@ -33,6 +44,21 @@ def _version_callback(value: bool) -> None:
+     raise typer.Exit()
+ 
+ 
++def _parse_branch_date(value: str | None) -> date | None:
++    if value is None:
++        return None
++    try:
++        return datetime.strptime(value, "%Y_%m_%d").date()
++    except ValueError as exc:
++        typer.echo("--date must use a valid YYYY_MM_DD date.", err=True)
++        raise typer.Exit(code=1) from exc
++
++
++def _handle_contributor_error(exc: Exception) -> None:
++    typer.echo(str(exc), err=True)
++    raise typer.Exit(code=1) from exc
++
++
+ @app.callback()
+ def main(
+     version: bool = typer.Option(
+@@ -46,6 +72,109 @@ def main(
+     """aiwiki-toolkit command group."""
+ 
+ 
++@contributor_app.command("branch-name")
++def contributor_branch_name(
++    kind: str = typer.Argument(
++        ...,
++        help="Branch kind: feature, chore, or fix.",
++    ),
++    description: str = typer.Argument(
++        ...,
++        help="Short description; normalized to lowercase underscores.",
++    ),
++    branch_date: str | None = typer.Option(
++        None,
++        "--date",
++        help="Override the branch date. Format: YYYY_MM_DD.",
++    ),
++) -> None:
++    """Print a valid contributor branch name."""
++    try:
++        branch_name = build_contributor_branch_name(
++            kind,
++            description,
++            today=_parse_branch_date(branch_date),
++        )
++    except ValueError as exc:
++        _handle_contributor_error(exc)
++
++    typer.echo(branch_name)
++
++
++@contributor_app.command("start")
++def contributor_start(
++    kind: str = typer.Argument(
++        ...,
++        help="Branch kind: feature, chore, or fix.",
++    ),
++    description: str = typer.Argument(
++        ...,
++        help="Short description; normalized to lowercase underscores.",
++    ),
++    pull: bool = typer.Option(
++        True,
++        "--pull/--no-pull",
++        help="Sync main with `git pull --ff-only` before creating the branch.",
++    ),
++    branch_date: str | None = typer.Option(
++        None,
++        "--date",
++        help="Override the branch date. Format: YYYY_MM_DD.",
++    ),
++) -> None:
++    """Start a contributor branch from main."""
++    try:
++        result = start_contributor_branch(
++            kind,
++            description,
++            today=_parse_branch_date(branch_date),
++            pull=pull,
++        )
++    except (ContributorWorkflowError, RepoRootNotFoundError, ValueError) as exc:
++        _handle_contributor_error(exc)
++
++    typer.echo(f"Started branch: {result.branch_name}")
++    typer.echo("Next: make changes, commit, then run `aiwiki-toolkit contributor push`.")
++
++
++@contributor_app.command("push")
++def contributor_push(
++    remote: str = typer.Option(
++        "origin",
++        "--remote",
++        help="Git remote to push to.",
++    )
++) -> None:
++    """Push the current contributor branch and prepare for a pull request."""
++    try:
++        result = push_contributor_branch(remote=remote)
++    except (ContributorWorkflowError, RepoRootNotFoundError) as exc:
++        _handle_contributor_error(exc)
++
++    typer.echo(f"Pushed branch: {result.branch_name}")
++    typer.echo("Open PR: gh pr create --fill")
++    typer.echo("After merge: aiwiki-toolkit contributor finish")
++
++
++@contributor_app.command("finish")
++def contributor_finish(
++    pull: bool = typer.Option(
++        True,
++        "--pull/--no-pull",
++        help="Sync main with `git pull --ff-only` after switching back.",
++    )
++) -> None:
++    """Switch back to main after the pull request is merged."""
++    try:
++        finish_contributor_branch(pull=pull)
++    except (ContributorWorkflowError, RepoRootNotFoundError) as exc:
++        _handle_contributor_error(exc)
++
++    typer.echo("Switched back to main.")
++    if pull:
++        typer.echo("Synced main with `git pull --ff-only`.")
++
++
+ def _echo_install_result(result) -> None:
+     typer.echo(f"Repo wiki: {result.paths.repo_wiki_dir}")
+     typer.echo(f"System wiki: {result.paths.system_dir}")
+diff --git a/src/ai_wiki_toolkit/contributor_workflow.py b/src/ai_wiki_toolkit/contributor_workflow.py
+new file mode 100644
+index 0000000..9b5d6b8
+--- /dev/null
++++ b/src/ai_wiki_toolkit/contributor_workflow.py
+@@ -0,0 +1,198 @@
++"""Contributor branch-and-PR workflow helpers."""
++
++from __future__ import annotations
++
++from collections.abc import Callable, Sequence
++from dataclasses import dataclass
++from datetime import date, datetime
++from pathlib import Path
++import re
++import subprocess
++
++from ai_wiki_toolkit.paths import resolve_repo_root
++
++CONTRIBUTOR_BRANCH_KINDS = ("feature", "chore", "fix")
++CONTRIBUTOR_BRANCH_PATTERN = (
++    r"^(?P<kind>feature|chore|fix)/"
++    r"(?P<branch_date>\d{4}_\d{2}_\d{2})_"
++    r"(?P<description>[a-z0-9]+(?:_[a-z0-9]+)*)$"
++)
++CONTRIBUTOR_BRANCH_RE = re.compile(CONTRIBUTOR_BRANCH_PATTERN)
++_DESCRIPTION_TOKEN_RE = re.compile(r"[^a-z0-9]+")
++
++GitRunner = Callable[[Path, Sequence[str]], str]
++
++
++class ContributorWorkflowError(RuntimeError):
++    """Raised when the contributor workflow cannot continue safely."""
++
++
++@dataclass(frozen=True)
++class ContributorWorkflowResult:
++    repo_root: Path
++    branch_name: str
++    ran_commands: tuple[tuple[str, ...], ...]
++
++
++def normalize_branch_description(description: str) -> str:
++    """Normalize free-form text to the required branch description suffix."""
++    normalized = _DESCRIPTION_TOKEN_RE.sub("_", description.strip().lower()).strip("_")
++    normalized = re.sub(r"_+", "_", normalized)
++    if not normalized:
++        raise ValueError("Branch description must contain at least one letter or number.")
++    return normalized
++
++
++def build_contributor_branch_name(
++    kind: str, description: str, today: date | None = None
++) -> str:
++    branch_kind = kind.strip()
++    if branch_kind not in CONTRIBUTOR_BRANCH_KINDS:
++        choices = ", ".join(CONTRIBUTOR_BRANCH_KINDS)
++        raise ValueError(f"Branch kind must be one of: {choices}.")
++
++    branch_date = today or date.today()
++    return (
++        f"{branch_kind}/"
++        f"{branch_date.strftime('%Y_%m_%d')}_"
++        f"{normalize_branch_description(description)}"
++    )
++
++
++def contributor_branch_name_error(branch_name: str) -> str | None:
++    match = CONTRIBUTOR_BRANCH_RE.match(branch_name)
++    if not match:
++        return (
++            "Contributor branch names must match "
++            "`feature/YYYY_MM_DD_description`, "
++            "`chore/YYYY_MM_DD_description`, or "
++            "`fix/YYYY_MM_DD_description`."
++        )
++
++    try:
++        datetime.strptime(match.group("branch_date"), "%Y_%m_%d")
++    except ValueError:
++        return "Contributor branch dates must be valid YYYY_MM_DD dates."
++
++    return None
++
++
++def validate_contributor_branch_name(branch_name: str) -> bool:
++    return contributor_branch_name_error(branch_name) is None
++
++
++def require_contributor_branch_name(branch_name: str) -> None:
++    error = contributor_branch_name_error(branch_name)
++    if error:
++        raise ContributorWorkflowError(error)
++
++
++def run_git(repo_root: Path, args: Sequence[str]) -> str:
++    try:
++        result = subprocess.run(
++            ["git", *args],
++            cwd=repo_root,
++            capture_output=True,
++            check=False,
++            text=True,
++        )
++    except OSError as exc:
++        raise ContributorWorkflowError(f"Could not run git: {exc}") from exc
++
++    if result.returncode != 0:
++        detail = result.stderr.strip() or result.stdout.strip()
++        command = "git " + " ".join(args)
++        if detail:
++            raise ContributorWorkflowError(f"`{command}` failed: {detail}")
++        raise ContributorWorkflowError(f"`{command}` failed.")
++
++    return result.stdout.strip()
++
++
++def current_branch(repo_root: Path, git_runner: GitRunner = run_git) -> str:
++    branch_name = git_runner(repo_root, ("branch", "--show-current")).strip()
++    if not branch_name:
++        raise ContributorWorkflowError("Could not determine the current git branch.")
++    return branch_name
++
++
++def start_contributor_branch(
++    kind: str,
++    description: str,
++    *,
++    repo_root: Path | None = None,
++    today: date | None = None,
++    pull: bool = True,
++    git_runner: GitRunner = run_git,
++) -> ContributorWorkflowResult:
++    root = repo_root or resolve_repo_root()
++    current = current_branch(root, git_runner=git_runner)
++    if current != "main":
++        raise ContributorWorkflowError(
++            "Contributor branches must start from `main`; "
++            f"current branch is `{current}`."
++        )
++
++    branch_name = build_contributor_branch_name(kind, description, today=today)
++    ran_commands: list[tuple[str, ...]] = []
++    if pull:
++        args = ("pull", "--ff-only")
++        git_runner(root, args)
++        ran_commands.append(args)
++
++    args = ("switch", "-c", branch_name)
++    git_runner(root, args)
++    ran_commands.append(args)
++    return ContributorWorkflowResult(
++        repo_root=root,
++        branch_name=branch_name,
++        ran_commands=tuple(ran_commands),
++    )
++
++
++def push_contributor_branch(
++    *,
++    repo_root: Path | None = None,
++    remote: str = "origin",
++    git_runner: GitRunner = run_git,
++) -> ContributorWorkflowResult:
++    root = repo_root or resolve_repo_root()
++    branch_name = current_branch(root, git_runner=git_runner)
++    if branch_name == "main":
++        raise ContributorWorkflowError(
++            "Do not push contributor changes from `main`; start a contributor branch first."
++        )
++    require_contributor_branch_name(branch_name)
++
++    args = ("push", "-u", remote, branch_name)
++    git_runner(root, args)
++    return ContributorWorkflowResult(
++        repo_root=root,
++        branch_name=branch_name,
++        ran_commands=(args,),
++    )
++
++
++def finish_contributor_branch(
++    *,
++    repo_root: Path | None = None,
++    pull: bool = True,
++    git_runner: GitRunner = run_git,
++) -> ContributorWorkflowResult:
++    root = repo_root or resolve_repo_root()
++    ran_commands: list[tuple[str, ...]] = []
++
++    args = ("switch", "main")
++    git_runner(root, args)
++    ran_commands.append(args)
++
++    if pull:
++        args = ("pull", "--ff-only")
++        git_runner(root, args)
++        ran_commands.append(args)
++
++    return ContributorWorkflowResult(
++        repo_root=root,
++        branch_name="main",
++        ran_commands=tuple(ran_commands),
++    )
+diff --git a/tests/test_contributor_cli.py b/tests/test_contributor_cli.py
+new file mode 100644
+index 0000000..c3e5c13
+--- /dev/null
++++ b/tests/test_contributor_cli.py
+@@ -0,0 +1,26 @@
++from __future__ import annotations
++
++from typer.testing import CliRunner
++
++from ai_wiki_toolkit.cli import app
++
++runner = CliRunner()
++
++
++def test_contributor_branch_name_command_prints_valid_branch_name() -> None:
++    result = runner.invoke(
++        app,
++        [
++            "contributor",
++            "branch-name",
++            "feature",
++            "Add contributor PR helper",
++            "--date",
++            "2026_04_25",
++        ],
++    )
++
++    assert result.exit_code == 0
++    assert result.output.splitlines() == [
++        "feature/2026_04_25_add_contributor_pr_helper"
++    ]
+diff --git a/tests/test_contributor_workflow.py b/tests/test_contributor_workflow.py
+new file mode 100644
+index 0000000..ba6b89c
+--- /dev/null
++++ b/tests/test_contributor_workflow.py
+@@ -0,0 +1,148 @@
++from __future__ import annotations
++
++from collections.abc import Sequence
++from datetime import date
++from pathlib import Path
++
++import pytest
++
++from ai_wiki_toolkit.contributor_workflow import (
++    ContributorWorkflowError,
++    build_contributor_branch_name,
++    contributor_branch_name_error,
++    finish_contributor_branch,
++    push_contributor_branch,
++    start_contributor_branch,
++    validate_contributor_branch_name,
++)
++
++
++FIXED_DATE = date(2026, 4, 25)
++
++
++def test_build_contributor_branch_name_normalizes_description() -> None:
++    branch_name = build_contributor_branch_name(
++        "feature",
++        "Add contributor PR helper",
++        today=FIXED_DATE,
++    )
++
++    assert branch_name == "feature/2026_04_25_add_contributor_pr_helper"
++
++
++@pytest.mark.parametrize("kind", ["feature", "chore", "fix"])
++def test_contributor_branch_name_allows_required_kinds(kind: str) -> None:
++    branch_name = f"{kind}/2026_04_25_update_docs"
++
++    assert validate_contributor_branch_name(branch_name) is True
++    assert contributor_branch_name_error(branch_name) is None
++
++
++@pytest.mark.parametrize(
++    "branch_name",
++    [
++        "main",
++        "docs/2026_04_25_update_docs",
++        "feature/2026-04-25_update_docs",
++        "feature/2026_04_25_update-docs",
++    ],
++)
++def test_contributor_branch_name_rejects_invalid_shapes(branch_name: str) -> None:
++    assert validate_contributor_branch_name(branch_name) is False
++    assert contributor_branch_name_error(branch_name) is not None
++
++
++def test_contributor_branch_name_rejects_invalid_dates() -> None:
++    assert (
++        contributor_branch_name_error("feature/2026_99_25_update_docs")
++        == "Contributor branch dates must be valid YYYY_MM_DD dates."
++    )
++
++
++def test_start_contributor_branch_requires_main(tmp_path: Path) -> None:
++    calls: list[tuple[str, ...]] = []
++
++    def fake_git_runner(repo_root: Path, args: Sequence[str]) -> str:
++        calls.append(tuple(args))
++        return "feature/2026_04_25_existing"
++
++    with pytest.raises(ContributorWorkflowError, match="must start from `main`"):
++        start_contributor_branch(
++            "feature",
++            "new helper",
++            repo_root=tmp_path,
++            today=FIXED_DATE,
++            git_runner=fake_git_runner,
++        )
++
++    assert calls == [("branch", "--show-current")]
++
++
++def test_start_contributor_branch_pulls_main_and_creates_new_branch(tmp_path: Path) -> None:
++    calls: list[tuple[str, ...]] = []
++
++    def fake_git_runner(repo_root: Path, args: Sequence[str]) -> str:
++        calls.append(tuple(args))
++        if tuple(args) == ("branch", "--show-current"):
++            return "main"
++        return ""
++
++    result = start_contributor_branch(
++        "feature",
++        "new helper",
++        repo_root=tmp_path,
++        today=FIXED_DATE,
++        git_runner=fake_git_runner,
++    )
++
++    assert result.branch_name == "feature/2026_04_25_new_helper"
++    assert result.ran_commands == (
++        ("pull", "--ff-only"),
++        ("switch", "-c", "feature/2026_04_25_new_helper"),
++    )
++    assert calls == [
++        ("branch", "--show-current"),
++        ("pull", "--ff-only"),
++        ("switch", "-c", "feature/2026_04_25_new_helper"),
++    ]
++
++
++def test_push_contributor_branch_rejects_main(tmp_path: Path) -> None:
++    def fake_git_runner(repo_root: Path, args: Sequence[str]) -> str:
++        return "main"
++
++    with pytest.raises(ContributorWorkflowError, match="Do not push"):
++        push_contributor_branch(repo_root=tmp_path, git_runner=fake_git_runner)
++
++
++def test_push_contributor_branch_pushes_current_valid_branch(tmp_path: Path) -> None:
++    calls: list[tuple[str, ...]] = []
++
++    def fake_git_runner(repo_root: Path, args: Sequence[str]) -> str:
++        calls.append(tuple(args))
++        if tuple(args) == ("branch", "--show-current"):
++            return "fix/2026_04_25_patch_release"
++        return ""
++
++    result = push_contributor_branch(repo_root=tmp_path, git_runner=fake_git_runner)
++
++    assert result.branch_name == "fix/2026_04_25_patch_release"
++    assert result.ran_commands == (("push", "-u", "origin", result.branch_name),)
++    assert calls == [
++        ("branch", "--show-current"),
++        ("push", "-u", "origin", "fix/2026_04_25_patch_release"),
++    ]
++
++
++def test_finish_contributor_branch_switches_back_to_main_and_pulls(tmp_path: Path) -> None:
++    calls: list[tuple[str, ...]] = []
++
++    def fake_git_runner(repo_root: Path, args: Sequence[str]) -> str:
++        calls.append(tuple(args))
++        return ""
++
++    result = finish_contributor_branch(repo_root=tmp_path, git_runner=fake_git_runner)
++
++    assert result.branch_name == "main"
++    assert result.ran_commands == (("switch", "main"), ("pull", "--ff-only"))
++    assert calls == [("switch", "main"), ("pull", "--ff-only")]

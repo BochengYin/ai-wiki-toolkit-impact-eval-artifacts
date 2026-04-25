@@ -1,0 +1,475 @@
+diff --git a/CONTRIBUTING.md b/CONTRIBUTING.md
+index 7d2bcf8..c34a6bd 100644
+--- a/CONTRIBUTING.md
++++ b/CONTRIBUTING.md
+@@ -17,15 +17,23 @@ Use GitHub Issues as the default place for feedback.
+ 
+ Please do not work directly on `main`.
+ 
+-Use a topic branch for your change:
++Use the repository helper to start a correctly named topic branch:
+ 
+ ```bash
+-git switch main
+-git pull --ff-only
+-git switch -c your-branch-name
++uv run python scripts/pr_flow.py start feature "short description"
+ ```
+ 
+-Then push that branch and open a pull request.
++Branch names must use one of these formats:
++
++- `feature/YYYY_MM_DD_description`
++- `chore/YYYY_MM_DD_description`
++- `fix/YYYY_MM_DD_description`
++
++After committing your changes, push that branch and open a pull request with:
++
++```bash
++uv run python scripts/pr_flow.py create
++```
+ 
+ The intended merge path for this repository is:
+ 
+@@ -37,8 +45,7 @@ The intended merge path for this repository is:
+ After the PR is merged, switch back to `main` locally and sync before starting the next task:
+ 
+ ```bash
+-git switch main
+-git pull --ff-only
++uv run python scripts/pr_flow.py finish
+ ```
+ 
+ `CODEOWNERS` is configured so `@BochengYin` is the default code owner. If branch protection is enabled in GitHub settings, that review can be required before merge.
+diff --git a/ai-wiki/people/eval-user/drafts/contributor-pr-flow-uses-dated-feature-chore-fix-branches.md b/ai-wiki/people/eval-user/drafts/contributor-pr-flow-uses-dated-feature-chore-fix-branches.md
+new file mode 100644
+index 0000000..b6550ad
+--- /dev/null
++++ b/ai-wiki/people/eval-user/drafts/contributor-pr-flow-uses-dated-feature-chore-fix-branches.md
+@@ -0,0 +1,40 @@
++---
++title: "Contributor PR flow uses dated feature chore fix branches"
++author_handle: "eval-user"
++model: "codex"
++source_kind: "feature-implementation"
++status: "draft"
++created_at: "2026-04-25T12:11:11+10:00"
++updated_at: "2026-04-25T12:11:11+10:00"
++promotion_candidate: false
++promotion_basis: "none"
++---
++# Contributor PR Flow Uses Dated Feature Chore Fix Branches
++
++## Context
++
++The contributor branch-and-PR helper was added as a repo-local script at `scripts/pr_flow.py`.
++
++The accepted branch-name formats are:
++
++- `feature/YYYY_MM_DD_description`
++- `chore/YYYY_MM_DD_description`
++- `fix/YYYY_MM_DD_description`
++
++The helper creates branches from an up-to-date `main`, refuses to open pull requests from `main`,
++pushes only valid topic branches, and switches back to `main` after the pull request is merged.
++
++## Reuse Assessment
++
++Use this when editing contributor workflow docs, tests, or helper behavior.
++
++The existing `ai-wiki/workflows.md` branch flow still contains older examples such as `feat/...` and
++`docs/...`. Treat those examples as stale for this helper until a human confirms whether the
++user-owned workflow doc should be updated.
++
++## Related Files
++
++- `CONTRIBUTING.md`
++- `scripts/pr_flow.py`
++- `tests/test_pr_flow.py`
++- `ai-wiki/workflows.md`
+diff --git a/scripts/pr_flow.py b/scripts/pr_flow.py
+new file mode 100644
+index 0000000..eb2ac82
+--- /dev/null
++++ b/scripts/pr_flow.py
+@@ -0,0 +1,232 @@
++"""Guide the repository's branch and pull request workflow."""
++
++from __future__ import annotations
++
++import argparse
++import json
++import re
++import subprocess
++import sys
++from datetime import date, datetime
++from typing import Protocol, Sequence
++
++
++BRANCH_KINDS = ("feature", "chore", "fix")
++BRANCH_NAME_PATTERN = re.compile(
++    r"^(feature|chore|fix)/(?P<date>\d{4}_\d{2}_\d{2})_[a-z0-9][a-z0-9_]*$"
++)
++
++
++class FlowError(Exception):
++    """Raised when the requested workflow step is not allowed."""
++
++
++class Runner(Protocol):
++    def run(self, args: Sequence[str], *, capture_stdout: bool = False) -> str:
++        """Run a command and optionally return stdout."""
++
++
++class SubprocessRunner:
++    def run(self, args: Sequence[str], *, capture_stdout: bool = False) -> str:
++        try:
++            completed = subprocess.run(
++                list(args),
++                check=True,
++                stdout=subprocess.PIPE if capture_stdout else None,
++                text=True,
++            )
++        except FileNotFoundError as error:
++            raise FlowError(f"Required command not found: {args[0]}") from error
++        except subprocess.CalledProcessError as error:
++            command = " ".join(args)
++            raise FlowError(f"Command failed: {command}") from error
++
++        if capture_stdout:
++            return completed.stdout.strip()
++        return ""
++
++
++def normalize_description(description: str) -> str:
++    normalized = re.sub(r"[^a-z0-9]+", "_", description.lower()).strip("_")
++    normalized = re.sub(r"_+", "_", normalized)
++    if not normalized:
++        raise FlowError("Branch description must contain at least one letter or number.")
++    return normalized
++
++
++def parse_branch_date(date_text: str) -> date:
++    try:
++        return datetime.strptime(date_text, "%Y_%m_%d").date()
++    except ValueError as error:
++        raise FlowError("Branch date must use YYYY_MM_DD with a real calendar date.") from error
++
++
++def branch_name_is_valid(branch_name: str) -> bool:
++    match = BRANCH_NAME_PATTERN.fullmatch(branch_name)
++    if not match:
++        return False
++
++    try:
++        parse_branch_date(match.group("date"))
++    except FlowError:
++        return False
++    return True
++
++
++def build_branch_name(kind: str, description: str, branch_date: date) -> str:
++    if kind not in BRANCH_KINDS:
++        raise FlowError("Branch kind must be one of: feature, chore, fix.")
++    return f"{kind}/{branch_date:%Y_%m_%d}_{normalize_description(description)}"
++
++
++def current_branch(runner: Runner) -> str:
++    branch_name = runner.run(["git", "branch", "--show-current"], capture_stdout=True)
++    if not branch_name:
++        raise FlowError("Detached HEAD is not supported for the pull request workflow.")
++    return branch_name
++
++
++def require_clean_worktree(runner: Runner) -> None:
++    status = runner.run(["git", "status", "--porcelain"], capture_stdout=True)
++    if status:
++        raise FlowError("Commit or stash local changes before running this workflow step.")
++
++
++def require_topic_branch(branch_name: str) -> None:
++    if branch_name == "main":
++        raise FlowError(
++            "Do not open pull requests from main. Start a branch with "
++            "`uv run python scripts/pr_flow.py start <feature|chore|fix> <description>`."
++        )
++    if not branch_name_is_valid(branch_name):
++        raise FlowError(
++            "Branch names must match feature/YYYY_MM_DD_description, "
++            "chore/YYYY_MM_DD_description, or fix/YYYY_MM_DD_description."
++        )
++
++
++def start_branch(
++    kind: str,
++    description: str,
++    *,
++    branch_date: date,
++    runner: Runner,
++) -> str:
++    require_clean_worktree(runner)
++    branch_name = build_branch_name(kind, description, branch_date)
++    runner.run(["git", "switch", "main"])
++    runner.run(["git", "pull", "--ff-only"])
++    runner.run(["git", "switch", "-c", branch_name])
++    return branch_name
++
++
++def create_pr(*, runner: Runner, base: str, draft: bool) -> str:
++    branch_name = current_branch(runner)
++    require_topic_branch(branch_name)
++    require_clean_worktree(runner)
++
++    runner.run(["git", "push", "-u", "origin", branch_name])
++    runner.run(["git", "ls-remote", "--exit-code", "--heads", "origin", branch_name])
++
++    command = ["gh", "pr", "create", "--base", base, "--fill"]
++    if draft:
++        command.append("--draft")
++    runner.run(command)
++    return branch_name
++
++
++def finish_pr(*, runner: Runner, base: str) -> str:
++    branch_name = current_branch(runner)
++    if branch_name == base:
++        runner.run(["git", "pull", "--ff-only"])
++        return branch_name
++
++    require_topic_branch(branch_name)
++    pr_data = runner.run(
++        ["gh", "pr", "view", branch_name, "--json", "state,mergedAt"],
++        capture_stdout=True,
++    )
++    try:
++        pr_status = json.loads(pr_data)
++    except json.JSONDecodeError as error:
++        raise FlowError("Could not parse pull request status from GitHub CLI output.") from error
++
++    if pr_status.get("state") != "MERGED" or not pr_status.get("mergedAt"):
++        raise FlowError("The pull request is not merged yet. Merge it before running finish.")
++
++    runner.run(["git", "switch", base])
++    runner.run(["git", "pull", "--ff-only"])
++    return branch_name
++
++
++def build_parser() -> argparse.ArgumentParser:
++    parser = argparse.ArgumentParser(description=__doc__)
++    subparsers = parser.add_subparsers(dest="command", required=True)
++
++    start = subparsers.add_parser(
++        "start",
++        help="Create a correctly named branch from an up-to-date main branch.",
++    )
++    start.add_argument("kind", choices=BRANCH_KINDS)
++    start.add_argument("description", nargs="+", help="Words to use in the branch description.")
++    start.add_argument(
++        "--date",
++        default=None,
++        help="Override the branch date in YYYY_MM_DD format. Defaults to today.",
++    )
++
++    create = subparsers.add_parser(
++        "create",
++        help="Push the current topic branch and open a pull request.",
++    )
++    create.add_argument("--base", default="main", help="Pull request base branch.")
++    create.add_argument("--draft", action="store_true", help="Open the pull request as a draft.")
++
++    finish = subparsers.add_parser(
++        "finish",
++        help="After merge, switch back to main and fast-forward it.",
++    )
++    finish.add_argument("--base", default="main", help="Branch to return to after merge.")
++
++    return parser
++
++
++def main(argv: Sequence[str] | None = None, *, runner: Runner | None = None) -> int:
++    parser = build_parser()
++    args = parser.parse_args(argv)
++    command_runner = runner or SubprocessRunner()
++
++    try:
++        if args.command == "start":
++            branch_date = parse_branch_date(args.date) if args.date else date.today()
++            branch_name = start_branch(
++                args.kind,
++                " ".join(args.description),
++                branch_date=branch_date,
++                runner=command_runner,
++            )
++            print(f"Created branch {branch_name}")
++            return 0
++
++        if args.command == "create":
++            branch_name = create_pr(runner=command_runner, base=args.base, draft=args.draft)
++            print(f"Pushed {branch_name} and opened a pull request.")
++            return 0
++
++        if args.command == "finish":
++            branch_name = finish_pr(runner=command_runner, base=args.base)
++            if branch_name == args.base:
++                print(f"Already on {args.base}; pulled the latest changes.")
++            else:
++                print(f"Pull request for {branch_name} is merged; switched back to {args.base}.")
++            return 0
++    except FlowError as error:
++        print(error, file=sys.stderr)
++        return 1
++
++    parser.error(f"Unknown command: {args.command}")
++    return 2
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/tests/test_pr_flow.py b/tests/test_pr_flow.py
+new file mode 100644
+index 0000000..bc36a09
+--- /dev/null
++++ b/tests/test_pr_flow.py
+@@ -0,0 +1,142 @@
++from __future__ import annotations
++
++import importlib.util
++import json
++from datetime import date
++from pathlib import Path
++from typing import Sequence
++
++
++ROOT = Path(__file__).resolve().parents[1]
++SPEC = importlib.util.spec_from_file_location("pr_flow", ROOT / "scripts" / "pr_flow.py")
++assert SPEC is not None
++assert SPEC.loader is not None
++pr_flow = importlib.util.module_from_spec(SPEC)
++SPEC.loader.exec_module(pr_flow)
++
++
++class FakeRunner:
++    def __init__(self, outputs: dict[tuple[str, ...], str] | None = None) -> None:
++        self.outputs = outputs or {}
++        self.commands: list[tuple[str, ...]] = []
++
++    def run(self, args: Sequence[str], *, capture_stdout: bool = False) -> str:
++        command = tuple(args)
++        self.commands.append(command)
++        return self.outputs.get(command, "")
++
++
++def test_build_branch_name_normalizes_description_and_uses_required_shape() -> None:
++    branch_name = pr_flow.build_branch_name(
++        "feature",
++        "Add contributor PR flow!",
++        date(2026, 4, 25),
++    )
++
++    assert branch_name == "feature/2026_04_25_add_contributor_pr_flow"
++    assert pr_flow.branch_name_is_valid(branch_name)
++
++
++def test_branch_name_validation_rejects_wrong_kind_shape_and_bad_date() -> None:
++    assert not pr_flow.branch_name_is_valid("feat/2026_04_25_add_flow")
++    assert not pr_flow.branch_name_is_valid("feature/2026-04-25-add-flow")
++    assert not pr_flow.branch_name_is_valid("feature/2026_02_30_add_flow")
++
++
++def test_start_branch_requires_clean_worktree_and_creates_from_main() -> None:
++    runner = FakeRunner({("git", "status", "--porcelain"): ""})
++
++    branch_name = pr_flow.start_branch(
++        "fix",
++        "Release flow docs",
++        branch_date=date(2026, 4, 25),
++        runner=runner,
++    )
++
++    assert branch_name == "fix/2026_04_25_release_flow_docs"
++    assert runner.commands == [
++        ("git", "status", "--porcelain"),
++        ("git", "switch", "main"),
++        ("git", "pull", "--ff-only"),
++        ("git", "switch", "-c", "fix/2026_04_25_release_flow_docs"),
++    ]
++
++
++def test_create_pr_rejects_main_without_pushing() -> None:
++    runner = FakeRunner({("git", "branch", "--show-current"): "main"})
++
++    try:
++        pr_flow.create_pr(runner=runner, base="main", draft=False)
++    except pr_flow.FlowError as error:
++        assert "Do not open pull requests from main" in str(error)
++    else:
++        raise AssertionError("Expected create_pr to reject main")
++
++    assert runner.commands == [("git", "branch", "--show-current")]
++
++
++def test_create_pr_pushes_current_valid_branch_before_opening_pr() -> None:
++    branch_name = "chore/2026_04_25_update_contributor_flow"
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): branch_name,
++            ("git", "status", "--porcelain"): "",
++        }
++    )
++
++    result = pr_flow.create_pr(runner=runner, base="main", draft=True)
++
++    assert result == branch_name
++    assert runner.commands == [
++        ("git", "branch", "--show-current"),
++        ("git", "status", "--porcelain"),
++        ("git", "push", "-u", "origin", branch_name),
++        ("git", "ls-remote", "--exit-code", "--heads", "origin", branch_name),
++        ("gh", "pr", "create", "--base", "main", "--fill", "--draft"),
++    ]
++
++
++def test_finish_pr_requires_merged_pull_request_before_switching_to_main() -> None:
++    branch_name = "feature/2026_04_25_pr_helper"
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): branch_name,
++            ("gh", "pr", "view", branch_name, "--json", "state,mergedAt"): json.dumps(
++                {"state": "OPEN", "mergedAt": None}
++            ),
++        }
++    )
++
++    try:
++        pr_flow.finish_pr(runner=runner, base="main")
++    except pr_flow.FlowError as error:
++        assert "not merged yet" in str(error)
++    else:
++        raise AssertionError("Expected finish_pr to reject an unmerged PR")
++
++    assert runner.commands == [
++        ("git", "branch", "--show-current"),
++        ("gh", "pr", "view", branch_name, "--json", "state,mergedAt"),
++    ]
++
++
++def test_finish_pr_switches_to_main_after_pull_request_is_merged() -> None:
++    branch_name = "feature/2026_04_25_pr_helper"
++    runner = FakeRunner(
++        {
++            ("git", "branch", "--show-current"): branch_name,
++            ("gh", "pr", "view", branch_name, "--json", "state,mergedAt"): json.dumps(
++                {"state": "MERGED", "mergedAt": "2026-04-25T01:00:00Z"}
++            ),
++        }
++    )
++
++    result = pr_flow.finish_pr(runner=runner, base="main")
++
++    assert result == branch_name
++    assert runner.commands == [
++        ("git", "branch", "--show-current"),
++        ("gh", "pr", "view", branch_name, "--json", "state,mergedAt"),
++        ("git", "switch", "main"),
++        ("git", "pull", "--ff-only"),
++    ]

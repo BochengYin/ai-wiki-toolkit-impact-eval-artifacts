@@ -1,0 +1,21 @@
+ .github/workflows/publish-npm.yml      | 11 +++++++++++
+ .github/workflows/release-binaries.yml | 18 ++++++++++++++++++
+ docs/npm-publish.md                    | 16 ++++++++++------
+ docs/npm-wrapper.md                    |  1 +
+ docs/releasing.md                      | 21 ++++++++++++++++-----
+ tests/test_distribution_metadata.py    | 29 +++++++++++++++++++++++++++++
+ 6 files changed, 85 insertions(+), 11 deletions(-)
+ .../_toolkit/metrics/document-stats.json           | 78 ++++++++++++++++++++++
+ 1 file changed, 78 insertions(+)
+ .../_toolkit/metrics/task-stats.json               | 26 ++++++++++++++++++++++
+ 1 file changed, 26 insertions(+)
+ /dev/null => ai-wiki/metrics/reuse-events/eval-user.jsonl | 9 +++++++++
+ 1 file changed, 9 insertions(+)
+ /dev/null => ai-wiki/metrics/task-checks/eval-user.jsonl | 1 +
+ 1 file changed, 1 insertion(+)
+ .../build_linux_release_in_container.py            | 112 +++++++++++++++++++++
+ 1 file changed, 112 insertions(+)
+ /dev/null => scripts/check_linux_runtime_matrix.py | 112 +++++++++++++++++++++
+ 1 file changed, 112 insertions(+)
+ .../test_linux_runtime_release_scripts.py          | 63 ++++++++++++++++++++++
+ 1 file changed, 63 insertions(+)

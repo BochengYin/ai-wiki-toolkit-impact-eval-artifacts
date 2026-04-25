@@ -1,0 +1,82 @@
+{
+  "schema_version": 2,
+  "experiment": "ownership_boundary",
+  "workspace_root": "<eval-root>/ownership_boundary/workspaces/20260425-115832",
+  "variants": [
+    "s01",
+    "s02",
+    "s03",
+    "s04",
+    "s05",
+    "s06"
+  ],
+  "prompt_levels": [
+    "original"
+  ],
+  "prompt_hashes": {
+    "original": "bbf23f94b3e48694091d3e0ecb5603b51c4fe56f4c7350440a938b1cf342d916"
+  },
+  "created_at": "2026-04-25T11:58:38",
+  "notes": "Clean formal Manual v2 ownership_boundary run restarted after adding run-level caffeinate guard; original prompt, five neutral slots, Codex CLI-first only. Supplemental s06 aiwiki_scaffold_no_adjacent_memory diagnostic added on 2026-04-25 without rerunning s01-s05.",
+  "assignment": {
+    "schema_version": 2,
+    "experiment": "ownership_boundary",
+    "baseline_ref": "34cd5a3^",
+    "workspace_layout": "neutral",
+    "primary_comparison": [
+      "no_aiwiki_workflow",
+      "aiwiki_ambient_memory_workflow"
+    ],
+    "diagnostic_variants": [
+      "aiwiki_scaffold_no_target_memory",
+      "aiwiki_linked_raw_only",
+      "aiwiki_linked_consolidated_only",
+      "aiwiki_scaffold_no_adjacent_memory"
+    ],
+    "slots": [
+      {
+        "slot": "s01",
+        "variant": "no_aiwiki_workflow",
+        "workspace": "<eval-root>/ownership_boundary/workspaces/20260425-115832/slots/s01"
+      },
+      {
+        "slot": "s02",
+        "variant": "aiwiki_scaffold_no_target_memory",
+        "workspace": "<eval-root>/ownership_boundary/workspaces/20260425-115832/slots/s02"
+      },
+      {
+        "slot": "s03",
+        "variant": "aiwiki_linked_raw_only",
+        "workspace": "<eval-root>/ownership_boundary/workspaces/20260425-115832/slots/s03"
+      },
+      {
+        "slot": "s04",
+        "variant": "aiwiki_linked_consolidated_only",
+        "workspace": "<eval-root>/ownership_boundary/workspaces/20260425-115832/slots/s04"
+      },
+      {
+        "slot": "s05",
+        "variant": "aiwiki_ambient_memory_workflow",
+        "workspace": "<eval-root>/ownership_boundary/workspaces/20260425-115832/slots/s05"
+      },
+      {
+        "slot": "s06",
+        "variant": "aiwiki_scaffold_no_adjacent_memory",
+        "workspace": "<eval-root>/ownership_boundary/workspaces/20260425-115832/slots/s06"
+      }
+    ]
+  },
+  "primary_comparison": [
+    "no_aiwiki_workflow",
+    "aiwiki_ambient_memory_workflow"
+  ],
+  "diagnostic_variants": [
+    "aiwiki_scaffold_no_target_memory",
+    "aiwiki_linked_raw_only",
+    "aiwiki_linked_consolidated_only",
+    "aiwiki_scaffold_no_adjacent_memory"
+  ],
+  "model_family": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "execution_surface": "codex-cli"
+}

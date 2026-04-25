@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "slot": "s02",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "ownership_boundary_runbook:Success"
+  ],
+  "evidence": [
+    "s02/original/first_pass/workspace_diff.patch",
+    "s02/original/first_pass/final_message.md",
+    "codex_sessions/s02/visible_transcript.md"
+  ],
+  "notes": "Behavioral success: added repo-local scripts/pr_flow.py and tests/test_pr_flow.py, documented in CONTRIBUTING.md, and stayed out of src/ai_wiki_toolkit. Diagnostic caveat: no-target slot is not clean explanatory evidence because visible transcript/reuse footer shows workflow and task-specific eval/meta drafts were consulted.",
+  "scored_at": "2026-04-25T12:40:08"
+}

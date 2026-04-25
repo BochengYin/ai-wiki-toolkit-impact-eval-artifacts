@@ -1,0 +1,105 @@
+diff --git a/.github/workflows/release-smoke-windows-arm.yml b/.github/workflows/release-smoke-windows-arm.yml
+index d237b21..869ab27 100644
+--- a/.github/workflows/release-smoke-windows-arm.yml
++++ b/.github/workflows/release-smoke-windows-arm.yml
+@@ -82,8 +82,9 @@ jobs:
+         shell: pwsh
+         run: |
+           $version = (& "release-assets/windows-arm64/aiwiki-toolkit.exe" --version).Trim()
+-          if ($version -ne "${{ steps.release.outputs.package_version }}") {
+-            throw "Expected version ${{ steps.release.outputs.package_version }} but binary returned $version."
++          $expected = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"
++          if ($version -ne $expected) {
++            throw "Expected version $expected but binary returned $version."
+           }
+ 
+   npm-smoke:
+@@ -149,6 +150,7 @@ jobs:
+         shell: pwsh
+         run: |
+           $version = (& aiwiki-toolkit --version).Trim()
+-          if ($version -ne "${{ steps.release.outputs.package_version }}") {
+-            throw "Expected version ${{ steps.release.outputs.package_version }} but npm-installed binary returned $version."
++          $expected = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"
++          if ($version -ne $expected) {
++            throw "Expected version $expected but npm-installed binary returned $version."
+           }
+diff --git a/tests/test_release_smoke_workflow.py b/tests/test_release_smoke_workflow.py
+index 79b9a06..e78ea49 100644
+--- a/tests/test_release_smoke_workflow.py
++++ b/tests/test_release_smoke_workflow.py
+@@ -28,3 +28,10 @@ def test_release_smoke_workflow_checks_release_archive_and_npm_install() -> None
+     assert '& "release-assets/windows-arm64/aiwiki-toolkit.exe" --version' in workflow
+     assert 'npm install -g "ai-wiki-toolkit@$version"' in workflow
+     assert '& aiwiki-toolkit --version' in workflow
++    assert (
++        workflow.count(
++            '$expected = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"'
++        )
++        == 2
++    )
++    assert workflow.count('if ($version -ne $expected)') == 2
+diff --git a/ai-wiki/people/eval-user/drafts/windows-arm-smoke-version-checks-must-match-cli-output.md b/ai-wiki/people/eval-user/drafts/windows-arm-smoke-version-checks-must-match-cli-output.md
+new file mode 100644
+index 0000000..daff3ed
+--- /dev/null
++++ b/ai-wiki/people/eval-user/drafts/windows-arm-smoke-version-checks-must-match-cli-output.md
+@@ -0,0 +1,58 @@
++---
++title: "Windows ARM smoke version checks must match CLI output"
++author_handle: "eval-user"
++model: "gpt-5"
++source_kind: "task"
++status: "draft"
++created_at: "2026-04-25T16:24:00+1000"
++updated_at: "2026-04-25T16:24:00+1000"
++promotion_candidate: false
++promotion_basis: "none"
++---
++# Review Draft
++
++## Context
++
++On April 25, 2026, the `Release Smoke Windows ARM` workflow failed in both the
++release-archive smoke path and the npm-installed smoke path.
++
++The Windows ARM binary was present and executable, but the version verification
++step failed in both jobs.
++
++## What Went Wrong
++
++The workflow compared `aiwiki-toolkit --version` output to the bare package
++version, such as `0.1.16`.
++
++The CLI contract is `ai-wiki-toolkit <version>`, such as
++`ai-wiki-toolkit 0.1.16`, so both smoke paths treated a valid binary as a
++version mismatch.
++
++## Bad Example
++
++- Run `aiwiki-toolkit --version`.
++- Compare the full stdout to `package.json`'s raw `version` field.
++- Fail even though the executable and package version are correct.
++
++## Fix
++
++Build the expected smoke value from the CLI contract:
++
++`ai-wiki-toolkit <package_version>`
++
++For workflow tests, assert that the Windows ARM smoke workflow checks the full
++CLI output string rather than the bare metadata version.
++
++## Reuse Assessment
++
++This is reusable for release smoke checks around package-manager wrappers and
++standalone binaries.
++
++Metadata version equality and CLI version-output equality are related but not
++identical. Smoke checks should assert the user-facing command contract they
++actually execute.
++
++## Promotion Decision
++
++Keep as a draft for now. Promote if another release workflow repeats the same
++bare-version comparison against a command that emits a labeled version string.

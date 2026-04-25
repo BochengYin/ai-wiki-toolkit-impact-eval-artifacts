@@ -1,0 +1,370 @@
+diff --git a/.github/workflows/publish-npm.yml b/.github/workflows/publish-npm.yml
+index c259fec..9239267 100644
+--- a/.github/workflows/publish-npm.yml
++++ b/.github/workflows/publish-npm.yml
+@@ -113,6 +113,10 @@ jobs:
+             echo "::endgroup::"
+           done
+ 
++      - name: Smoke Linux npm install in node bookworm
++        shell: bash
++        run: bash scripts/smoke_npm_linux_install.sh
++
+       - name: Publish platform npm packages
+         shell: bash
+         env:
+diff --git a/.github/workflows/release-binaries.yml b/.github/workflows/release-binaries.yml
+index cb20e84..e3303eb 100644
+--- a/.github/workflows/release-binaries.yml
++++ b/.github/workflows/release-binaries.yml
+@@ -53,12 +53,15 @@ jobs:
+           python-version: "3.11"
+ 
+       - name: Install release dependencies
++        if: ${{ matrix.target != 'linux-x64' }}
+         run: python -m pip install ".[dev,release]"
+ 
+       - name: Run test suite
++        if: ${{ matrix.target != 'linux-x64' }}
+         run: python -m pytest
+ 
+       - name: Build standalone binary
++        if: ${{ matrix.target != 'linux-x64' }}
+         run: >
+           python -m PyInstaller
+           --clean
+@@ -69,14 +72,62 @@ jobs:
+           --specpath build/pyinstaller
+           src/ai_wiki_toolkit/cli.py
+ 
++      - name: Build Linux x64 binary in Debian bookworm container
++        if: ${{ matrix.target == 'linux-x64' }}
++        shell: bash
++        run: |
++          docker run --rm --platform linux/amd64 \
++            --user "$(id -u):$(id -g)" \
++            -e HOME=/tmp \
++            -v "$PWD:/workspace" \
++            -w /workspace \
++            python:3.11-bookworm \
++            bash -euo pipefail -c '
++              python -m venv /tmp/aiwiki-release-venv
++              . /tmp/aiwiki-release-venv/bin/activate
++              python -m pip install ".[dev,release]"
++              python -m pytest
++              python -m PyInstaller \
++                --clean \
++                --noconfirm \
++                --onefile \
++                --name aiwiki-toolkit \
++                --paths src \
++                --specpath build/pyinstaller \
++                src/ai_wiki_toolkit/cli.py
++            '
++
+       - name: Package release archive
+         run: >
+-          python scripts/build_release_archive.py
++          PYTHONPATH=src python scripts/build_release_archive.py
+           --binary "${{ matrix.binary_path }}"
+           --version "${{ github.ref_name }}"
+           --target "${{ matrix.target }}"
+           --output-dir release-assets
+ 
++      - name: Smoke Linux x64 archive in node bookworm container
++        if: ${{ matrix.target == 'linux-x64' }}
++        shell: bash
++        run: |
++          set -euo pipefail
++          smoke_dir="build/linux-x64-smoke"
++          rm -rf "$smoke_dir"
++          mkdir -p "$smoke_dir"
++          tar -xzf "release-assets/ai-wiki-toolkit-${GITHUB_REF_NAME}-linux-x64.tar.gz" -C "$smoke_dir"
++          docker run --rm --platform linux/amd64 \
++            -e EXPECTED_VERSION="${GITHUB_REF_NAME#v}" \
++            -v "$PWD/$smoke_dir:/smoke:ro" \
++            node:24-bookworm \
++            bash -euo pipefail -c '
++              output="$(/smoke/aiwiki-toolkit --version)"
++              printf "%s\n" "$output"
++              expected="ai-wiki-toolkit ${EXPECTED_VERSION}"
++              if [ "$output" != "$expected" ]; then
++                printf "Expected %s, got %s\n" "$expected" "$output" >&2
++                exit 1
++              fi
++            '
++
+       - name: Upload workflow artifact
+         uses: actions/upload-artifact@v4
+         with:
+diff --git a/docs/npm-publish.md b/docs/npm-publish.md
+index 99193fd..8fe5212 100644
+--- a/docs/npm-publish.md
++++ b/docs/npm-publish.md
+@@ -10,9 +10,10 @@ The npm publish flow uses a meta package plus platform-specific binary packages.
+ 2. GitHub Release assets are uploaded
+ 3. `Publish npm Package` runs after the release workflow completes successfully
+ 4. the workflow stages one npm platform package per release target
+-5. the workflow publishes those platform packages first
+-6. the workflow publishes the `ai-wiki-toolkit` meta package last
+-7. npm users can install with:
++5. the workflow packs the staged `linux-x64` package and meta package, installs them in `node:24-bookworm`, and runs `aiwiki-toolkit --version`
++6. the workflow publishes those platform packages first
++7. the workflow publishes the `ai-wiki-toolkit` meta package last
++8. npm users can install with:
+ 
+    ```bash
+    npm install -g ai-wiki-toolkit
+@@ -77,12 +78,15 @@ The workflow:
+    - token-based publish when `NPM_PUBLISH_TOKEN` is present
+ 5. downloads the matching GitHub Release archives
+ 6. stages the platform npm packages from those archives
+-7. publishes the platform npm packages
+-8. runs `npm pack --dry-run --ignore-scripts` for the meta package
+-9. publishes the meta package when requested
++7. smokes the staged Linux npm install in a clean `node:24-bookworm` container
++8. publishes the platform npm packages
++9. runs `npm pack --dry-run --ignore-scripts` for the meta package
++10. publishes the meta package when requested
+ 
+ Before enabling `NPM_PUBLISH_ENABLED`, make sure the npm platform target map only advertises targets that the `Release Binaries` workflow actually publishes.
+ 
++The Linux npm smoke uses `scripts/smoke_npm_linux_install.sh`. It packs the staged `ai-wiki-toolkit-linux-x64` package and the local meta package into `build/npm-smoke`, installs both with `npm install -g` inside `node:24-bookworm`, and checks that `aiwiki-toolkit --version` returns the package version. This keeps Python shared library and glibc runtime failures from reaching npm users.
++
+ The meta package is published from `package.json` in this repository, so its version must stay in sync with:
+ 
+ - `package.json`
+diff --git a/docs/npm-wrapper.md b/docs/npm-wrapper.md
+index 1e5947e..47434ac 100644
+--- a/docs/npm-wrapper.md
++++ b/docs/npm-wrapper.md
+@@ -58,8 +58,9 @@ The intended npm flow is:
+ 
+ 1. build and upload GitHub Release binaries
+ 2. stage one npm platform package per published release target
+-3. publish the platform packages with the same version
+-4. publish the `ai-wiki-toolkit` meta package with the same version
++3. smoke the staged Linux npm install in `node:24-bookworm`
++4. publish the platform packages with the same version
++5. publish the `ai-wiki-toolkit` meta package with the same version
+ 
+ The publishing workflow is documented in [docs/npm-publish.md](npm-publish.md).
+ 
+@@ -81,4 +82,5 @@ The published npm package should continue to satisfy these constraints:
+ - the asset naming is frozen
+ - the npm platform target map matches the current public release asset matrix
+ - the npm package version always matches the Python package version
++- the staged `linux-x64` package and meta package pass an install plus `aiwiki-toolkit --version` smoke in `node:24-bookworm` before npm publish
+ - npm trusted publishing is configured for the package
+diff --git a/docs/releasing.md b/docs/releasing.md
+index afc284f..f8aa79a 100644
+--- a/docs/releasing.md
++++ b/docs/releasing.md
+@@ -10,11 +10,13 @@ The repository now includes a GitHub Actions workflow at `.github/workflows/rele
+ 2. installs the project with the `release` dependency group
+ 3. runs the test suite
+ 4. builds standalone binaries with PyInstaller
+-5. archives each binary into a release asset
+-6. renders a Homebrew formula from the release archives
+-7. creates or updates a GitHub Release for the tag
+-8. optionally syncs the generated formula into a Homebrew tap repository
+-9. uploads the built archives and generated formula as release assets
++5. builds `linux-x64` inside a Debian Bookworm Python container
++6. archives each binary into a release asset
++7. smokes the `linux-x64` archive inside `node:24-bookworm`
++8. renders a Homebrew formula from the release archives
++9. creates or updates a GitHub Release for the tag
++10. optionally syncs the generated formula into a Homebrew tap repository
++11. uploads the built archives and generated formula as release assets
+ 
+ This workflow is the base distribution layer for later package-manager integrations such as Homebrew and npm platform packages.
+ 
+@@ -69,9 +71,10 @@ The archive contains a single executable:
+    ```
+ 
+ 5. Wait for the `Release Binaries` workflow to finish.
+-6. Verify that the GitHub Release for the tag contains all expected archives and `aiwiki-toolkit.rb`.
+-7. Wait for the npm publish workflow to stage and publish the platform packages plus the meta package.
+-8. If tap sync is enabled, verify that the tap repository received the updated `Formula/aiwiki-toolkit.rb`.
++6. Verify that the `linux-x64` Bookworm smoke passed before artifacts were uploaded.
++7. Verify that the GitHub Release for the tag contains all expected archives and `aiwiki-toolkit.rb`.
++8. Wait for the npm publish workflow to stage, smoke, and publish the platform packages plus the meta package.
++9. If tap sync is enabled, verify that the tap repository received the updated `Formula/aiwiki-toolkit.rb`.
+ 
+ ## Local Dry Run
+ 
+@@ -83,6 +86,8 @@ python -m PyInstaller --clean --noconfirm --onefile --name aiwiki-toolkit --path
+ python scripts/build_release_archive.py --binary dist/aiwiki-toolkit --version v0.1.0 --target linux-x64 --output-dir release-assets
+ ```
+ 
++For Linux runtime compatibility, mirror CI by building `linux-x64` in `python:3.11-bookworm` and testing the archive in `node:24-bookworm`. This catches binaries that accidentally link against a newer host glibc before release assets or npm packages are published.
++
+ Windows local dry runs can still be performed manually with `--binary dist/aiwiki-toolkit.exe --target windows-x64`, but that target is not part of the automated public release matrix yet.
+ 
+ ## Next Distribution Layers
+diff --git a/tests/test_distribution_metadata.py b/tests/test_distribution_metadata.py
+index 647ce66..6d3fbfe 100644
+--- a/tests/test_distribution_metadata.py
++++ b/tests/test_distribution_metadata.py
+@@ -54,3 +54,40 @@ def test_release_workflow_passes_license_into_generated_homebrew_formula() -> No
+     )
+ 
+     assert "--license MIT" in workflow
++
++
++def test_release_workflow_smokes_linux_archive_in_bookworm_before_upload() -> None:
++    workflow = (ROOT / ".github" / "workflows" / "release-binaries.yml").read_text(
++        encoding="utf-8"
++    )
++
++    assert "Build Linux x64 binary in Debian bookworm container" in workflow
++    assert "python:3.11-bookworm" in workflow
++    assert "Smoke Linux x64 archive in node bookworm container" in workflow
++    assert "node:24-bookworm" in workflow
++    assert "aiwiki-toolkit --version" in workflow
++    assert workflow.index("Smoke Linux x64 archive in node bookworm container") < workflow.index(
++        "Upload workflow artifact"
++    )
++
++
++def test_publish_npm_workflow_smokes_linux_install_before_publish() -> None:
++    workflow = (ROOT / ".github" / "workflows" / "publish-npm.yml").read_text(
++        encoding="utf-8"
++    )
++
++    assert "Smoke Linux npm install in node bookworm" in workflow
++    assert "bash scripts/smoke_npm_linux_install.sh" in workflow
++    assert workflow.index("Smoke Linux npm install in node bookworm") < workflow.index(
++        "Publish platform npm packages"
++    )
++
++
++def test_linux_npm_smoke_script_exercises_staged_packages_in_node_bookworm() -> None:
++    script = (ROOT / "scripts" / "smoke_npm_linux_install.sh").read_text(encoding="utf-8")
++
++    assert "NPM_SMOKE_IMAGE:-node:24-bookworm" in script
++    assert "npm pack --silent --pack-destination" in script
++    assert 'npm install -g "$PLATFORM_TARBALL" "$META_TARBALL"' in script
++    assert "aiwiki-toolkit --version" in script
++    assert "ai-wiki-toolkit ${EXPECTED_VERSION}" in script
+diff --git a/ai-wiki/metrics/reuse-events/bochengyin.jsonl b/ai-wiki/metrics/reuse-events/bochengyin.jsonl
+new file mode 100644
+index 0000000..ec59e15
+--- /dev/null
++++ b/ai-wiki/metrics/reuse-events/bochengyin.jsonl
+@@ -0,0 +1,5 @@
++{"schema_version":"reuse-v1","event_id":"20260425T070048Z-linux-npm-runtime-compatibility-01","observed_at":"2026-04-25T07:00:48Z","author_handle":"bochengyin","task_id":"linux-npm-runtime-compatibility-smoke","doc_id":"constraints","doc_kind":"repo_ai_wiki","retrieval_mode":"preloaded","evidence_mode":"explicit","reuse_outcome":"partial","reuse_effects":["respected_distribution_rules","kept_release_tests_portable"],"agent_name":"Codex","model":"gpt-5","notes":"Project constraints guided the release-facing test and distribution-scope changes."}
++{"schema_version":"reuse-v1","event_id":"20260425T070048Z-linux-npm-runtime-compatibility-02","observed_at":"2026-04-25T07:00:48Z","author_handle":"bochengyin","task_id":"linux-npm-runtime-compatibility-smoke","doc_id":"conventions/distribution-target-matrix-must-match-published-assets","doc_kind":"repo_ai_wiki","retrieval_mode":"lookup","evidence_mode":"explicit","reuse_outcome":"resolved","reuse_effects":["reused_convention","expanded_smoke_coverage"],"agent_name":"Codex","model":"gpt-5","notes":"The distribution matrix convention drove the paired release-asset and npm-install smoke checks."}
++{"schema_version":"reuse-v1","event_id":"20260425T070048Z-linux-npm-runtime-compatibility-03","observed_at":"2026-04-25T07:00:48Z","author_handle":"bochengyin","task_id":"linux-npm-runtime-compatibility-smoke","doc_id":"problems/linux-musl-pyinstaller-needs-binutils-objdump","doc_kind":"repo_ai_wiki","retrieval_mode":"lookup","evidence_mode":"explicit","reuse_outcome":"partial","reuse_effects":["checked_linux_container_build_assumptions"],"agent_name":"Codex","model":"gpt-5","notes":"The prior PyInstaller container issue informed the Linux container build review."}
++{"schema_version":"reuse-v1","event_id":"20260425T070048Z-linux-npm-runtime-compatibility-04","observed_at":"2026-04-25T07:00:48Z","author_handle":"bochengyin","task_id":"linux-npm-runtime-compatibility-smoke","doc_id":"workflows","doc_kind":"repo_ai_wiki","retrieval_mode":"preloaded","evidence_mode":"explicit","reuse_outcome":"partial","reuse_effects":["followed_release_workflow_expectations"],"agent_name":"Codex","model":"gpt-5","notes":"Repo workflow notes shaped the release-process validation and verification commands."}
++{"schema_version":"reuse-v1","event_id":"20260425T070048Z-linux-npm-runtime-compatibility-05","observed_at":"2026-04-25T07:00:48Z","author_handle":"bochengyin","task_id":"linux-npm-runtime-compatibility-smoke","doc_id":"people/bochengyin/index","doc_kind":"repo_ai_wiki","retrieval_mode":"lookup","evidence_mode":"explicit","reuse_outcome":"partial","reuse_effects":["placed_update_draft_under_handle"],"agent_name":"Codex","model":"gpt-5","notes":"The handle-local draft index confirmed where to place the new runtime compatibility lesson."}
+diff --git a/ai-wiki/metrics/task-checks/bochengyin.jsonl b/ai-wiki/metrics/task-checks/bochengyin.jsonl
+new file mode 100644
+index 0000000..6f1cf75
+--- /dev/null
++++ b/ai-wiki/metrics/task-checks/bochengyin.jsonl
+@@ -0,0 +1 @@
++{"schema_version":"reuse-v1","check_id":"20260425T070048Z-linux-npm-runtime-compatibility","checked_at":"2026-04-25T07:00:48Z","author_handle":"bochengyin","task_id":"linux-npm-runtime-compatibility-smoke","check_outcome":"wiki_used","agent_name":"Codex","model":"gpt-5","notes":"Release/runtime compatibility task reused repo distribution constraints, release workflow notes, and Linux packaging memory."}
+diff --git a/ai-wiki/people/bochengyin/drafts/linux-npm-runtime-compatibility-needs-bookworm-smoke-before-publish.md b/ai-wiki/people/bochengyin/drafts/linux-npm-runtime-compatibility-needs-bookworm-smoke-before-publish.md
+new file mode 100644
+index 0000000..4980ddc
+--- /dev/null
++++ b/ai-wiki/people/bochengyin/drafts/linux-npm-runtime-compatibility-needs-bookworm-smoke-before-publish.md
+@@ -0,0 +1,36 @@
++---
++title: "Linux npm runtime compatibility needs a Bookworm smoke before publish"
++author_handle: "bochengyin"
++model: "gpt-5"
++source_kind: "task"
++status: "draft"
++created_at: "2026-04-25T17:01:10+1000"
++updated_at: "2026-04-25T17:01:10+1000"
++promotion_candidate: false
++promotion_basis: "none"
++---
++# Review Draft
++
++## Context
++
++A clean `node:24-bookworm` linux/amd64 npm install of `ai-wiki-toolkit` succeeded, but `aiwiki-toolkit --version` failed at runtime with a Python shared library / GLIBC compatibility error.
++
++## What Went Wrong
++
++The release process could build and publish a Linux PyInstaller binary from a newer runner baseline without executing it in the older runtime environment represented by the npm user path.
++
++That left a gap where asset staging and package installation succeeded, but the installed binary could still fail immediately on startup.
++
++## Fix
++
++Build `linux-x64` in a Debian Bookworm Python container and smoke the resulting archive inside `node:24-bookworm` before uploading release artifacts.
++
++Also smoke the npm publish path before `npm publish` by packing the staged `linux-x64` platform package and the meta package, installing both with `npm install -g` inside `node:24-bookworm`, and checking `aiwiki-toolkit --version`.
++
++## Reuse Assessment
++
++This is reusable for PyInstaller-backed package-manager distributions. A package install smoke should execute the installed binary in the oldest supported or documented runtime baseline, not only verify that archives and package metadata exist.
++
++## Promotion Decision
++
++Keep as a draft for now. Promote only if another runtime-baseline mismatch appears or the team wants a stable release rule beyond the existing distribution target matrix convention.
+diff --git a/scripts/smoke_npm_linux_install.sh b/scripts/smoke_npm_linux_install.sh
+new file mode 100644
+index 0000000..ccd03ba
+--- /dev/null
++++ b/scripts/smoke_npm_linux_install.sh
+@@ -0,0 +1,55 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++ROOT_DIR="${1:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
++PLATFORM_PACKAGES_DIR="${PLATFORM_PACKAGES_DIR:-$ROOT_DIR/build/npm-platform-packages}"
++PACK_DIR="${NPM_SMOKE_PACK_DIR:-$ROOT_DIR/build/npm-smoke}"
++IMAGE="${NPM_SMOKE_IMAGE:-node:24-bookworm}"
++
++if ! command -v docker >/dev/null 2>&1; then
++  echo "docker is required for the Linux npm install smoke test." >&2
++  exit 1
++fi
++
++if ! command -v node >/dev/null 2>&1; then
++  echo "node is required to resolve package metadata for the npm smoke test." >&2
++  exit 1
++fi
++
++if ! command -v npm >/dev/null 2>&1; then
++  echo "npm is required to pack local npm packages for the smoke test." >&2
++  exit 1
++fi
++
++EXPECTED_VERSION="${EXPECTED_VERSION:-$(node -e "process.stdout.write(require(process.argv[1]).version)" "$ROOT_DIR/package.json")}"
++LINUX_PACKAGE_NAME="${LINUX_PACKAGE_NAME:-$(node -e "process.stdout.write(require(process.argv[1])['linux-x64'].package_name)" "$ROOT_DIR/npm/platform-targets.json")}"
++LINUX_PACKAGE_DIR="$PLATFORM_PACKAGES_DIR/$LINUX_PACKAGE_NAME"
++
++if [ ! -d "$LINUX_PACKAGE_DIR" ]; then
++  echo "Expected staged Linux package directory at $LINUX_PACKAGE_DIR." >&2
++  exit 1
++fi
++
++rm -rf "$PACK_DIR"
++mkdir -p "$PACK_DIR"
++export npm_config_cache="${npm_config_cache:-$PACK_DIR/npm-cache}"
++
++platform_tgz_name="$(cd "$LINUX_PACKAGE_DIR" && npm pack --silent --pack-destination "$PACK_DIR")"
++meta_tgz_name="$(cd "$ROOT_DIR" && npm pack --silent --ignore-scripts --pack-destination "$PACK_DIR")"
++
++docker run --rm --platform linux/amd64 \
++  -e EXPECTED_VERSION="$EXPECTED_VERSION" \
++  -e PLATFORM_TARBALL="/packages/$platform_tgz_name" \
++  -e META_TARBALL="/packages/$meta_tgz_name" \
++  -v "$PACK_DIR:/packages:ro" \
++  "$IMAGE" \
++  bash -euo pipefail -c '
++    npm install -g "$PLATFORM_TARBALL" "$META_TARBALL"
++    output="$(aiwiki-toolkit --version)"
++    printf "%s\n" "$output"
++    expected="ai-wiki-toolkit ${EXPECTED_VERSION}"
++    if [ "$output" != "$expected" ]; then
++      printf "Expected %s, got %s\n" "$expected" "$output" >&2
++      exit 1
++    fi
++  '

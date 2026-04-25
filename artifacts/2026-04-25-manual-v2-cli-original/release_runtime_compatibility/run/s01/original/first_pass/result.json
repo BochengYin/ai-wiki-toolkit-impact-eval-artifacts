@@ -1,0 +1,29 @@
+{
+  "schema_version": 2,
+  "slot": "s01",
+  "variant": "no_aiwiki_workflow",
+  "prompt_level": "original",
+  "phase": "first_pass",
+  "workspace": "<eval-root>/release_runtime_compatibility/workspaces/20260425-160315/slots/s01",
+  "captured_at": "2026-04-25T16:51:04",
+  "attempt": 1,
+  "human_nudges": 0,
+  "first_pass_success": null,
+  "changed_files": [
+    ".github/workflows/publish-npm.yml",
+    ".github/workflows/release-binaries.yml",
+    "docs/npm-publish.md",
+    "docs/npm-wrapper.md",
+    "docs/releasing.md",
+    "tests/test_distribution_metadata.py",
+    "scripts/smoke_npm_linux_install.py",
+    "src/ai_wiki_toolkit/npm_smoke.py",
+    "tests/test_npm_smoke.py"
+  ],
+  "untracked_files": [
+    "scripts/smoke_npm_linux_install.py",
+    "src/ai_wiki_toolkit/npm_smoke.py",
+    "tests/test_npm_smoke.py"
+  ],
+  "notes": "Captured by run_cli_slots.py; Codex CLI return code: 0. Run-level sleep guard metadata is in sleep_guard.json."
+}

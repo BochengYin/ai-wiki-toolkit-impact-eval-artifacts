@@ -1,0 +1,18 @@
+{
+  "schema_version": 2,
+  "slot": "s02",
+  "prompt_level": "original",
+  "label": "success",
+  "rubric_refs": [
+    "evals/impact/families/release_runtime_compatibility/spec.toml",
+    "evals/impact/prompts/release_runtime_compatibility/original.md"
+  ],
+  "evidence": [
+    "workspace_diff.patch",
+    "visible_transcript.md",
+    "visible_session.jsonl",
+    "final_message.md"
+  ],
+  "notes": "Built linux-x64 in python:3.11-bookworm, smoked the release archive in node:24-bookworm, added a pre-publish staged npm install smoke, and updated docs/tests.",
+  "scored_at": "2026-04-25T19:40:59"
+}

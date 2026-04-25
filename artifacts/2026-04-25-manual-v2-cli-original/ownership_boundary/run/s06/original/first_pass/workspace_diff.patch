@@ -1,0 +1,538 @@
+diff --git a/README.md b/README.md
+index ec7cb95..98e11fc 100644
+--- a/README.md
++++ b/README.md
+@@ -144,6 +144,28 @@ cd /path/to/your/repo
+ aiwiki-toolkit install
+ ```
+ 
++### Contributor branch workflow
++
++From this repository checkout, start each contribution from a generated branch instead of working directly on `main`:
++
++```bash
++python scripts/contributor_pr.py start feature "short description"
++```
++
++Contributor branches must be named `feature/YYYY_MM_DD_description`, `chore/YYYY_MM_DD_description`, or `fix/YYYY_MM_DD_description`.
++
++When the work is committed, push the contributor branch and open a pull request:
++
++```bash
++python scripts/contributor_pr.py push
++```
++
++After the pull request is merged, return to `main`:
++
++```bash
++python scripts/contributor_pr.py finish --merged --pull
++```
++
+ ### Local development
+ 
+ 1. Install the command from this repository checkout:
+diff --git a/scripts/contributor_pr.py b/scripts/contributor_pr.py
+new file mode 100644
+index 0000000..141b46c
+--- /dev/null
++++ b/scripts/contributor_pr.py
+@@ -0,0 +1,173 @@
++"""Help contributors follow this repository's branch-and-PR workflow."""
++
++from __future__ import annotations
++
++import argparse
++from datetime import date
++from pathlib import Path
++import subprocess
++import sys
++
++ROOT = Path(__file__).resolve().parents[1]
++SRC = ROOT / "src"
++if str(SRC) not in sys.path:
++    sys.path.insert(0, str(SRC))
++
++from ai_wiki_toolkit.contributor_workflow import (
++    ALLOWED_BRANCH_KINDS,
++    ContributorWorkflowError,
++    build_branch_name,
++    parse_branch_date,
++    validate_contributor_branch_name,
++    validate_finish_confirmation,
++    validate_push_branch,
++    validate_start_state,
++)
++
++
++def _run_git(repo: Path, args: list[str], *, dry_run: bool = False) -> None:
++    command = ["git", *args]
++    if dry_run:
++        print("+ " + " ".join(command))
++        return
++
++    result = subprocess.run(command, cwd=repo, check=False)
++    if result.returncode != 0:
++        raise SystemExit(result.returncode)
++
++
++def _capture_git(repo: Path, args: list[str]) -> str:
++    result = subprocess.run(
++        ["git", *args],
++        cwd=repo,
++        capture_output=True,
++        check=False,
++        text=True,
++    )
++    if result.returncode != 0:
++        detail = result.stderr.strip() or result.stdout.strip()
++        raise ContributorWorkflowError(detail or f"git {' '.join(args)} failed")
++    return result.stdout.strip()
++
++
++def _current_branch(repo: Path) -> str:
++    branch = _capture_git(repo, ["branch", "--show-current"])
++    if not branch:
++        raise ContributorWorkflowError("Could not determine the current git branch.")
++    return branch
++
++
++def _dirty_worktree(repo: Path) -> bool:
++    return bool(_capture_git(repo, ["status", "--porcelain"]))
++
++
++def _parse_date(value: str | None) -> date | None:
++    if value is None:
++        return None
++    return parse_branch_date(value)
++
++
++def start(args: argparse.Namespace) -> int:
++    repo = args.repo.resolve()
++    branch = build_branch_name(
++        args.kind,
++        " ".join(args.description),
++        branch_date=_parse_date(args.date),
++    )
++    validate_start_state(_current_branch(repo), _dirty_worktree(repo))
++
++    _run_git(repo, ["switch", "-c", branch], dry_run=args.dry_run)
++    print(f"Contributor branch: {branch}")
++    print("After committing changes, run: python scripts/contributor_pr.py push")
++    return 0
++
++
++def push(args: argparse.Namespace) -> int:
++    repo = args.repo.resolve()
++    branch = validate_push_branch(_current_branch(repo))
++
++    _run_git(repo, ["push", "--set-upstream", "origin", branch], dry_run=args.dry_run)
++    print(f"Pushed contributor branch: {branch}")
++    print("Open a pull request from this branch.")
++    print("After the pull request is merged, run: python scripts/contributor_pr.py finish --merged")
++    return 0
++
++
++def finish(args: argparse.Namespace) -> int:
++    repo = args.repo.resolve()
++    validate_finish_confirmation(args.merged)
++    branch = validate_push_branch(_current_branch(repo))
++
++    _run_git(repo, ["switch", "main"], dry_run=args.dry_run)
++    if args.pull:
++        _run_git(repo, ["pull", "--ff-only"], dry_run=args.dry_run)
++    print(f"Returned to main after merged pull request for {branch}.")
++    return 0
++
++
++def validate(args: argparse.Namespace) -> int:
++    repo = args.repo.resolve()
++    branch = args.branch or _current_branch(repo)
++    validate_contributor_branch_name(branch)
++    print(f"Valid contributor branch: {branch}")
++    return 0
++
++
++def parse_args(argv: list[str]) -> argparse.Namespace:
++    parser = argparse.ArgumentParser(description=__doc__)
++    parser.add_argument(
++        "--repo",
++        type=Path,
++        default=Path.cwd(),
++        help="Repository path. Defaults to the current working directory.",
++    )
++    parser.add_argument(
++        "--dry-run",
++        action="store_true",
++        help="Print git commands without running them.",
++    )
++    subparsers = parser.add_subparsers(dest="command", required=True)
++
++    start_parser = subparsers.add_parser("start", help="Create a new contributor branch from main.")
++    start_parser.add_argument("kind", choices=ALLOWED_BRANCH_KINDS)
++    start_parser.add_argument("description", nargs="+", help="Short branch description.")
++    start_parser.add_argument(
++        "--date",
++        help="Override the branch date for deterministic runs. Format: YYYY_MM_DD.",
++    )
++    start_parser.set_defaults(func=start)
++
++    push_parser = subparsers.add_parser("push", help="Push the current contributor branch.")
++    push_parser.set_defaults(func=push)
++
++    finish_parser = subparsers.add_parser("finish", help="Return to main after the PR is merged.")
++    finish_parser.add_argument(
++        "--merged",
++        action="store_true",
++        help="Confirm the pull request for the current branch has been merged.",
++    )
++    finish_parser.add_argument(
++        "--pull",
++        action="store_true",
++        help="Run git pull --ff-only after switching back to main.",
++    )
++    finish_parser.set_defaults(func=finish)
++
++    validate_parser = subparsers.add_parser("validate", help="Validate a contributor branch name.")
++    validate_parser.add_argument("branch", nargs="?", help="Branch name. Defaults to current branch.")
++    validate_parser.set_defaults(func=validate)
++
++    return parser.parse_args(argv)
++
++
++def main(argv: list[str] | None = None) -> int:
++    args = parse_args(argv or sys.argv[1:])
++    try:
++        return args.func(args)
++    except (ContributorWorkflowError, ValueError) as exc:
++        print(str(exc), file=sys.stderr)
++        return 1
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/src/ai_wiki_toolkit/contributor_workflow.py b/src/ai_wiki_toolkit/contributor_workflow.py
+new file mode 100644
+index 0000000..e3f2b07
+--- /dev/null
++++ b/src/ai_wiki_toolkit/contributor_workflow.py
+@@ -0,0 +1,103 @@
++"""Contributor branch and pull request workflow helpers."""
++
++from __future__ import annotations
++
++from datetime import date
++import re
++
++ALLOWED_BRANCH_KINDS = ("feature", "chore", "fix")
++MAIN_BRANCH = "main"
++
++_DESCRIPTION_SEPARATOR_RE = re.compile(r"[^a-z0-9]+")
++_BRANCH_NAME_RE = re.compile(
++    r"^(?P<kind>feature|chore|fix)/"
++    r"(?P<year>\d{4})_(?P<month>\d{2})_(?P<day>\d{2})_"
++    r"(?P<description>[a-z0-9]+(?:_[a-z0-9]+)*)$"
++)
++
++
++class ContributorWorkflowError(RuntimeError):
++    """Raised when a contributor workflow step is not allowed."""
++
++
++def normalize_branch_description(description: str) -> str:
++    normalized = _DESCRIPTION_SEPARATOR_RE.sub("_", description.strip().lower()).strip("_")
++    if not normalized:
++        raise ValueError("Branch description must include at least one letter or number.")
++    return normalized
++
++
++def parse_branch_date(value: str) -> date:
++    match = re.fullmatch(r"(\d{4})_(\d{2})_(\d{2})", value)
++    if not match:
++        raise ValueError("Branch date must use YYYY_MM_DD.")
++    year, month, day = (int(part) for part in match.groups())
++    return date(year, month, day)
++
++
++def build_branch_name(
++    kind: str,
++    description: str,
++    branch_date: date | None = None,
++) -> str:
++    if kind not in ALLOWED_BRANCH_KINDS:
++        allowed = ", ".join(ALLOWED_BRANCH_KINDS)
++        raise ValueError(f"Branch kind must be one of: {allowed}.")
++    current_date = branch_date or date.today()
++    return f"{kind}/{current_date:%Y_%m_%d}_{normalize_branch_description(description)}"
++
++
++def validate_contributor_branch_name(branch_name: str) -> str:
++    match = _BRANCH_NAME_RE.fullmatch(branch_name)
++    if not match:
++        raise ValueError(
++            "Branch names must match "
++            "feature/YYYY_MM_DD_description, chore/YYYY_MM_DD_description, "
++            "or fix/YYYY_MM_DD_description."
++        )
++
++    try:
++        date(
++            int(match.group("year")),
++            int(match.group("month")),
++            int(match.group("day")),
++        )
++    except ValueError as exc:
++        raise ValueError("Branch date must be a real YYYY_MM_DD date.") from exc
++
++    return branch_name
++
++
++def is_contributor_branch_name(branch_name: str) -> bool:
++    try:
++        validate_contributor_branch_name(branch_name)
++    except ValueError:
++        return False
++    return True
++
++
++def validate_start_state(current_branch: str, dirty_worktree: bool) -> None:
++    if current_branch != MAIN_BRANCH:
++        raise ContributorWorkflowError(
++            f"Start contributor work from `{MAIN_BRANCH}`; current branch is `{current_branch}`."
++        )
++    if dirty_worktree:
++        raise ContributorWorkflowError(
++            f"Start contributor work from a clean `{MAIN_BRANCH}` before making changes."
++        )
++
++
++def validate_push_branch(branch_name: str) -> str:
++    if branch_name == MAIN_BRANCH:
++        raise ContributorWorkflowError("Push contributor changes from a new branch, not `main`.")
++    try:
++        return validate_contributor_branch_name(branch_name)
++    except ValueError as exc:
++        raise ContributorWorkflowError(str(exc)) from exc
++
++
++def validate_finish_confirmation(merged: bool) -> None:
++    if not merged:
++        raise ContributorWorkflowError(
++            "Switch back to `main` only after the pull request is merged; re-run with --merged."
++        )
+diff --git a/tests/test_contributor_pr_script.py b/tests/test_contributor_pr_script.py
+new file mode 100644
+index 0000000..f680fbc
+--- /dev/null
++++ b/tests/test_contributor_pr_script.py
+@@ -0,0 +1,123 @@
++from __future__ import annotations
++
++from pathlib import Path
++import subprocess
++import sys
++
++ROOT = Path(__file__).resolve().parents[1]
++SCRIPT = ROOT / "scripts" / "contributor_pr.py"
++
++
++def run_git(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
++    return subprocess.run(
++        ["git", *args],
++        cwd=repo,
++        capture_output=True,
++        check=True,
++        text=True,
++    )
++
++
++def run_helper(repo: Path, *args: str) -> subprocess.CompletedProcess[str]:
++    return subprocess.run(
++        [sys.executable, SCRIPT.as_posix(), "--repo", repo.as_posix(), *args],
++        cwd=ROOT,
++        capture_output=True,
++        check=False,
++        text=True,
++    )
++
++
++def create_git_repo(tmp_path: Path) -> Path:
++    repo = tmp_path / "repo"
++    repo.mkdir()
++    subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, capture_output=True)
++    run_git(repo, "config", "user.email", "contributor@example.com")
++    run_git(repo, "config", "user.name", "Contributor")
++    (repo / "README.md").write_text("# Test Repo\n", encoding="utf-8")
++    run_git(repo, "add", "README.md")
++    run_git(repo, "commit", "-m", "Initial commit")
++    return repo
++
++
++def current_branch(repo: Path) -> str:
++    return run_git(repo, "branch", "--show-current").stdout.strip()
++
++
++def test_start_creates_required_contributor_branch_from_clean_main(tmp_path: Path) -> None:
++    repo = create_git_repo(tmp_path)
++
++    result = run_helper(
++        repo,
++        "start",
++        "feature",
++        "Branch helper",
++        "--date",
++        "2026_04_25",
++    )
++
++    assert result.returncode == 0
++    assert current_branch(repo) == "feature/2026_04_25_branch_helper"
++    assert "Contributor branch: feature/2026_04_25_branch_helper" in result.stdout
++
++
++def test_start_rejects_dirty_main_before_creating_branch(tmp_path: Path) -> None:
++    repo = create_git_repo(tmp_path)
++    (repo / "dirty.txt").write_text("started on main\n", encoding="utf-8")
++
++    result = run_helper(
++        repo,
++        "start",
++        "fix",
++        "Dirty main",
++        "--date",
++        "2026_04_25",
++    )
++
++    assert result.returncode == 1
++    assert "clean `main`" in result.stderr
++    assert current_branch(repo) == "main"
++
++
++def test_push_dry_run_requires_valid_non_main_branch(tmp_path: Path) -> None:
++    repo = create_git_repo(tmp_path)
++
++    main_result = run_helper(repo, "--dry-run", "push")
++
++    assert main_result.returncode == 1
++    assert "not `main`" in main_result.stderr
++
++    start_result = run_helper(repo, "start", "chore", "Dry run push", "--date", "2026_04_25")
++    assert start_result.returncode == 0
++
++    branch_result = run_helper(repo, "--dry-run", "push")
++
++    assert branch_result.returncode == 0
++    assert "+ git push --set-upstream origin chore/2026_04_25_dry_run_push" in branch_result.stdout
++
++
++def test_finish_requires_merged_confirmation_before_returning_to_main(tmp_path: Path) -> None:
++    repo = create_git_repo(tmp_path)
++    start_result = run_helper(repo, "start", "fix", "Finish helper", "--date", "2026_04_25")
++    assert start_result.returncode == 0
++
++    unmerged_result = run_helper(repo, "finish")
++
++    assert unmerged_result.returncode == 1
++    assert "after the pull request is merged" in unmerged_result.stderr
++    assert current_branch(repo) == "fix/2026_04_25_finish_helper"
++
++    merged_result = run_helper(repo, "finish", "--merged")
++
++    assert merged_result.returncode == 0
++    assert current_branch(repo) == "main"
++
++
++def test_finish_rejects_main_even_with_merged_confirmation(tmp_path: Path) -> None:
++    repo = create_git_repo(tmp_path)
++
++    result = run_helper(repo, "finish", "--merged")
++
++    assert result.returncode == 1
++    assert "not `main`" in result.stderr
++    assert current_branch(repo) == "main"
+diff --git a/tests/test_contributor_workflow.py b/tests/test_contributor_workflow.py
+new file mode 100644
+index 0000000..7629f6c
+--- /dev/null
++++ b/tests/test_contributor_workflow.py
+@@ -0,0 +1,82 @@
++from __future__ import annotations
++
++from datetime import date
++
++import pytest
++
++from ai_wiki_toolkit.contributor_workflow import (
++    ContributorWorkflowError,
++    build_branch_name,
++    is_contributor_branch_name,
++    normalize_branch_description,
++    parse_branch_date,
++    validate_finish_confirmation,
++    validate_push_branch,
++    validate_start_state,
++)
++
++
++def test_build_branch_name_uses_required_contributor_pattern() -> None:
++    branch_name = build_branch_name(
++        "feature",
++        "Add contributor branch helper",
++        branch_date=date(2026, 4, 25),
++    )
++
++    assert branch_name == "feature/2026_04_25_add_contributor_branch_helper"
++    assert is_contributor_branch_name(branch_name) is True
++
++
++def test_branch_name_validation_accepts_allowed_kinds_and_real_dates() -> None:
++    assert is_contributor_branch_name("feature/2026_04_25_branch_helper") is True
++    assert is_contributor_branch_name("chore/2026_04_25_branch_helper") is True
++    assert is_contributor_branch_name("fix/2026_04_25_branch_helper") is True
++
++    assert is_contributor_branch_name("docs/2026_04_25_branch_helper") is False
++    assert is_contributor_branch_name("feature/2026-04-25-branch-helper") is False
++    assert is_contributor_branch_name("feature/2026_02_31_branch_helper") is False
++    assert is_contributor_branch_name("main") is False
++
++
++def test_normalize_branch_description_requires_letters_or_numbers() -> None:
++    assert normalize_branch_description("Branch & PR helper") == "branch_pr_helper"
++
++    with pytest.raises(ValueError, match="at least one letter or number"):
++        normalize_branch_description(" -- ")
++
++
++def test_parse_branch_date_requires_underscore_date() -> None:
++    assert parse_branch_date("2026_04_25") == date(2026, 4, 25)
++
++    with pytest.raises(ValueError, match="YYYY_MM_DD"):
++        parse_branch_date("2026-04-25")
++
++
++def test_start_state_requires_clean_main() -> None:
++    validate_start_state("main", dirty_worktree=False)
++
++    with pytest.raises(ContributorWorkflowError, match="from `main`"):
++        validate_start_state("feature/2026_04_25_work", dirty_worktree=False)
++
++    with pytest.raises(ContributorWorkflowError, match="clean `main`"):
++        validate_start_state("main", dirty_worktree=True)
++
++
++def test_push_requires_named_contributor_branch_not_main() -> None:
++    assert (
++        validate_push_branch("fix/2026_04_25_branch_validation")
++        == "fix/2026_04_25_branch_validation"
++    )
++
++    with pytest.raises(ContributorWorkflowError, match="not `main`"):
++        validate_push_branch("main")
++
++    with pytest.raises(ContributorWorkflowError, match="Branch names must match"):
++        validate_push_branch("feature/freeform-name")
++
++
++def test_finish_requires_merged_confirmation() -> None:
++    validate_finish_confirmation(True)
++
++    with pytest.raises(ContributorWorkflowError, match="after the pull request is merged"):
++        validate_finish_confirmation(False)

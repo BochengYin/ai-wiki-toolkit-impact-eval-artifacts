@@ -1,0 +1,21 @@
+{
+  "schema_version": 2,
+  "slot": "s02",
+  "variant": "aiwiki_scaffold_no_target_memory",
+  "prompt_level": "original",
+  "phase": "first_pass",
+  "workspace": "<eval-root>/windows_arm_smoke_cli_output/workspaces/20260425-160315/slots/s02",
+  "captured_at": "2026-04-25T16:25:52",
+  "attempt": 1,
+  "human_nudges": 0,
+  "first_pass_success": null,
+  "changed_files": [
+    ".github/workflows/release-smoke-windows-arm.yml",
+    "tests/test_release_smoke_workflow.py",
+    "ai-wiki/people/eval-user/drafts/windows-arm-smoke-version-checks-must-match-cli-output.md"
+  ],
+  "untracked_files": [
+    "ai-wiki/people/eval-user/drafts/windows-arm-smoke-version-checks-must-match-cli-output.md"
+  ],
+  "notes": "Captured by run_cli_slots.py; Codex CLI return code: 0. Run-level sleep guard metadata is in sleep_guard.json."
+}

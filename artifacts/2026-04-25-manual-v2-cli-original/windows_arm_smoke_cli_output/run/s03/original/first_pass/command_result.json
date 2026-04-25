@@ -1,0 +1,11 @@
+{
+  "slot": "s03",
+  "variant": "aiwiki_linked_raw_only",
+  "prompt_level": "original",
+  "workspace": "<eval-root>/windows_arm_smoke_cli_output/workspaces/20260425-160315/slots/s03",
+  "final_message": "<eval-root>/windows_arm_smoke_cli_output/runs/cli-original-windows-arm-20260425-1618/s03/original/first_pass/final_message.md",
+  "codex_returncode": 0,
+  "save_result_returncode": 0,
+  "started_at": "2026-04-25T16:25:52",
+  "finished_at": "2026-04-25T16:30:56"
+}

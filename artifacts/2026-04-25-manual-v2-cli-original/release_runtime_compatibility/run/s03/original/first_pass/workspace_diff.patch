@@ -1,0 +1,596 @@
+diff --git a/.github/workflows/publish-npm.yml b/.github/workflows/publish-npm.yml
+index c259fec..a933049 100644
+--- a/.github/workflows/publish-npm.yml
++++ b/.github/workflows/publish-npm.yml
+@@ -113,6 +113,11 @@ jobs:
+             echo "::endgroup::"
+           done
+ 
++      - name: Smoke staged Linux npm package
++        run: >
++          bash scripts/smoke_staged_npm_linux_package.sh
++          "$(node -p "require('./package.json').version")"
++
+       - name: Publish platform npm packages
+         shell: bash
+         env:
+diff --git a/.github/workflows/release-binaries.yml b/.github/workflows/release-binaries.yml
+index cb20e84..aa53055 100644
+--- a/.github/workflows/release-binaries.yml
++++ b/.github/workflows/release-binaries.yml
+@@ -25,7 +25,26 @@ jobs:
+       - name: Verify tag matches package metadata
+         run: PYTHONPATH=src python scripts/check_release_version.py "${{ github.ref_name }}"
+ 
+-  build:
++  build-linux-x64:
++    name: Build linux-x64
++    runs-on: ubuntu-24.04
++    needs: verify-version
++
++    steps:
++      - name: Check out source
++        uses: actions/checkout@v4
++
++      - name: Build linux-x64 archive on Debian bookworm
++        run: bash scripts/build_linux_release_in_container.sh "${GITHUB_REF_NAME}"
++
++      - name: Upload workflow artifact
++        uses: actions/upload-artifact@v4
++        with:
++          name: release-linux-x64
++          path: release-assets/*
++          if-no-files-found: error
++
++  build-macos:
+     name: Build ${{ matrix.target }}
+     runs-on: ${{ matrix.runner }}
+     needs: verify-version
+@@ -33,9 +52,6 @@ jobs:
+       fail-fast: false
+       matrix:
+         include:
+-          - runner: ubuntu-24.04
+-            target: linux-x64
+-            binary_path: dist/aiwiki-toolkit
+           - runner: macos-15
+             target: macos-arm64
+             binary_path: dist/aiwiki-toolkit
+@@ -84,10 +100,43 @@ jobs:
+           path: release-assets/*
+           if-no-files-found: error
+ 
++  smoke-linux-x64:
++    name: Smoke linux-x64 on ${{ matrix.label }}
++    runs-on: ubuntu-24.04
++    needs: build-linux-x64
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - label: node-24-bookworm
++            image: node:24-bookworm
++          - label: node-24-trixie
++            image: node:24-trixie
++
++    steps:
++      - name: Check out source
++        uses: actions/checkout@v4
++
++      - name: Download linux release archive
++        uses: actions/download-artifact@v4
++        with:
++          name: release-linux-x64
++          path: release-assets
++
++      - name: Run Linux runtime smoke
++        run: >
++          bash scripts/smoke_linux_release_runtime.sh
++          "${GITHUB_REF_NAME}"
++          release-assets
++          "${{ matrix.image }}"
++
+   publish:
+     name: Publish GitHub Release assets
+     runs-on: ubuntu-24.04
+-    needs: build
++    needs:
++      - build-linux-x64
++      - build-macos
++      - smoke-linux-x64
+     env:
+       HOMEBREW_TAP_PAT: ${{ secrets.HOMEBREW_TAP_PAT }}
+ 
+diff --git a/ai-wiki/people/bochengyin/drafts/linux-release-binaries-need-runtime-checks-against-an-older-glibc-baseline.md b/ai-wiki/people/bochengyin/drafts/linux-release-binaries-need-runtime-checks-against-an-older-glibc-baseline.md
+index 37c3a2f..3b129f1 100644
+--- a/ai-wiki/people/bochengyin/drafts/linux-release-binaries-need-runtime-checks-against-an-older-glibc-baseline.md
++++ b/ai-wiki/people/bochengyin/drafts/linux-release-binaries-need-runtime-checks-against-an-older-glibc-baseline.md
+@@ -5,9 +5,9 @@ model: "gpt-5"
+ source_kind: "review"
+ status: "draft"
+ created_at: "2026-04-19T17:21:00+1000"
+-updated_at: "2026-04-19T18:22:00+1000"
+-promotion_candidate: false
+-promotion_basis: "none"
++updated_at: "2026-04-25T17:14:00+1000"
++promotion_candidate: true
++promotion_basis: "The same Linux npm runtime compatibility issue recurred for 0.1.7, and the release process now formalizes older-glibc build and runtime smoke gates."
+ ---
+ # Review Draft
+ 
+@@ -63,4 +63,12 @@ A green npm publish does not prove the binary is broadly runnable on Linux. Runt
+ 
+ ## Promotion Decision
+ 
+-Keep as a draft for now. Promote if another release hits the same gap or if we formalize a release test matrix for binary compatibility.
++Promotion candidate.
++
++The gate is now satisfied because the Linux npm runtime compatibility issue recurred for `0.1.7`, and the release process now formalizes:
++
++- a `linux-x64` build on `python:3.11-bookworm`
++- release-archive runtime smoke checks in `node:24-bookworm` and `node:24-trixie`
++- a staged npm tarball smoke in `node:24-bookworm` before npm publication
++
++Human confirmation is still required before promoting this draft into a shared review pattern or convention.
+diff --git a/docs/npm-publish.md b/docs/npm-publish.md
+index 99193fd..c038186 100644
+--- a/docs/npm-publish.md
++++ b/docs/npm-publish.md
+@@ -77,9 +77,13 @@ The workflow:
+    - token-based publish when `NPM_PUBLISH_TOKEN` is present
+ 5. downloads the matching GitHub Release archives
+ 6. stages the platform npm packages from those archives
+-7. publishes the platform npm packages
+-8. runs `npm pack --dry-run --ignore-scripts` for the meta package
+-9. publishes the meta package when requested
++7. packs the staged `linux-x64` platform package plus the meta package into local tarballs
++8. installs those local tarballs in a clean `node:24-bookworm` linux/amd64 container and runs `aiwiki-toolkit --version`
++9. publishes the platform npm packages
++10. runs `npm pack --dry-run --ignore-scripts` for the meta package
++11. publishes the meta package when requested
++
++The pre-publish smoke uses `npm install -g --offline` against local tarballs so it verifies the staged release artifacts instead of downloading already-published packages from the registry.
+ 
+ Before enabling `NPM_PUBLISH_ENABLED`, make sure the npm platform target map only advertises targets that the `Release Binaries` workflow actually publishes.
+ 
+diff --git a/docs/npm-wrapper.md b/docs/npm-wrapper.md
+index 1e5947e..6dce19f 100644
+--- a/docs/npm-wrapper.md
++++ b/docs/npm-wrapper.md
+@@ -82,3 +82,4 @@ The published npm package should continue to satisfy these constraints:
+ - the npm platform target map matches the current public release asset matrix
+ - the npm package version always matches the Python package version
+ - npm trusted publishing is configured for the package
++- the staged Linux npm tarballs install and run `aiwiki-toolkit --version` in a clean `node:24-bookworm` linux/amd64 container before publication
+diff --git a/docs/releasing.md b/docs/releasing.md
+index afc284f..48f23eb 100644
+--- a/docs/releasing.md
++++ b/docs/releasing.md
+@@ -10,11 +10,13 @@ The repository now includes a GitHub Actions workflow at `.github/workflows/rele
+ 2. installs the project with the `release` dependency group
+ 3. runs the test suite
+ 4. builds standalone binaries with PyInstaller
+-5. archives each binary into a release asset
+-6. renders a Homebrew formula from the release archives
+-7. creates or updates a GitHub Release for the tag
+-8. optionally syncs the generated formula into a Homebrew tap repository
+-9. uploads the built archives and generated formula as release assets
++5. builds `linux-x64` inside a `python:3.11-bookworm` linux/amd64 container so the binary is linked against an older glibc baseline
++6. archives each binary into a release asset
++7. runs the Linux release archive in clean `node:24-bookworm` and `node:24-trixie` linux/amd64 containers
++8. renders a Homebrew formula from the release archives
++9. creates or updates a GitHub Release for the tag
++10. optionally syncs the generated formula into a Homebrew tap repository
++11. uploads the built archives and generated formula as release assets
+ 
+ This workflow is the base distribution layer for later package-manager integrations such as Homebrew and npm platform packages.
+ 
+@@ -30,6 +32,8 @@ Windows packaging remains implemented in the codebase, but it is currently exclu
+ 
+ The target labels map to GitHub-hosted runners and determine the release asset names.
+ 
++`linux-x64` is built through Docker on the Ubuntu runner rather than directly on the host runner. Keep that build on an older glibc image unless the supported Linux runtime baseline is intentionally raised.
++
+ ## Asset Naming
+ 
+ Each archive is named like this:
+@@ -68,11 +72,13 @@ The archive contains a single executable:
+    git push origin v0.1.0
+    ```
+ 
+-5. Wait for the `Release Binaries` workflow to finish.
++5. Wait for the `Release Binaries` workflow to finish, including the Linux runtime smoke matrix.
+ 6. Verify that the GitHub Release for the tag contains all expected archives and `aiwiki-toolkit.rb`.
+-7. Wait for the npm publish workflow to stage and publish the platform packages plus the meta package.
++7. Wait for the npm publish workflow to stage, smoke, and publish the platform packages plus the meta package.
+ 8. If tap sync is enabled, verify that the tap repository received the updated `Formula/aiwiki-toolkit.rb`.
+ 
++The Linux smoke checks must execute `aiwiki-toolkit --version`, not just unpack the archive or install an npm package. A successful package install does not prove that the bundled Python runtime can load on the target distro.
++
+ ## Local Dry Run
+ 
+ You can test the binary build locally before cutting a release:
+@@ -83,6 +89,14 @@ python -m PyInstaller --clean --noconfirm --onefile --name aiwiki-toolkit --path
+ python scripts/build_release_archive.py --binary dist/aiwiki-toolkit --version v0.1.0 --target linux-x64 --output-dir release-assets
+ ```
+ 
++For the Linux release path, prefer the same containerized build and runtime smoke used by CI:
++
++```bash
++bash scripts/build_linux_release_in_container.sh v0.1.0
++bash scripts/smoke_linux_release_runtime.sh v0.1.0 release-assets node:24-bookworm
++bash scripts/smoke_linux_release_runtime.sh v0.1.0 release-assets node:24-trixie
++```
++
+ Windows local dry runs can still be performed manually with `--binary dist/aiwiki-toolkit.exe --target windows-x64`, but that target is not part of the automated public release matrix yet.
+ 
+ ## Next Distribution Layers
+diff --git a/tests/test_distribution_metadata.py b/tests/test_distribution_metadata.py
+index 647ce66..54c263e 100644
+--- a/tests/test_distribution_metadata.py
++++ b/tests/test_distribution_metadata.py
+@@ -15,7 +15,12 @@ def _release_workflow_targets() -> set[str]:
+     workflow = (ROOT / ".github" / "workflows" / "release-binaries.yml").read_text(
+         encoding="utf-8"
+     )
+-    return set(re.findall(r"^\s+target: ([a-z0-9-]+)\s*$", workflow, re.MULTILINE))
++    targets = set(re.findall(r"^\s+target: ([a-z0-9-]+)\s*$", workflow, re.MULTILINE))
++    build_script = (ROOT / "scripts" / "build_linux_release_in_container.sh").read_text(
++        encoding="utf-8"
++    )
++    targets.update(re.findall(r"--target\s+([a-z0-9-]+)", build_script))
++    return targets
+ 
+ 
+ def _npm_wrapper_targets() -> set[str]:
+@@ -54,3 +59,57 @@ def test_release_workflow_passes_license_into_generated_homebrew_formula() -> No
+     )
+ 
+     assert "--license MIT" in workflow
++
++
++def test_linux_release_build_uses_bookworm_container_baseline() -> None:
++    workflow = (ROOT / ".github" / "workflows" / "release-binaries.yml").read_text(
++        encoding="utf-8"
++    )
++    build_script = (ROOT / "scripts" / "build_linux_release_in_container.sh").read_text(
++        encoding="utf-8"
++    )
++
++    assert "build-linux-x64:" in workflow
++    assert "bash scripts/build_linux_release_in_container.sh" in workflow
++    assert "python:3.11-bookworm" in build_script
++    assert "--platform linux/amd64" in build_script
++    assert "python -m pytest" in build_script
++    assert "--target linux-x64" in build_script
++
++
++def test_release_workflow_smokes_linux_binary_before_publish() -> None:
++    workflow = (ROOT / ".github" / "workflows" / "release-binaries.yml").read_text(
++        encoding="utf-8"
++    )
++    smoke_script = (ROOT / "scripts" / "smoke_linux_release_runtime.sh").read_text(
++        encoding="utf-8"
++    )
++    smoke_index = workflow.index("  smoke-linux-x64:")
++    publish_index = workflow.index("  publish:")
++    publish_needs = workflow[publish_index : workflow.index("    env:", publish_index)]
++
++    assert smoke_index < publish_index
++    assert "node:24-bookworm" in workflow
++    assert "node:24-trixie" in workflow
++    assert "bash scripts/smoke_linux_release_runtime.sh" in workflow
++    assert "- smoke-linux-x64" in publish_needs
++    assert "aiwiki-toolkit --version" in smoke_script
++    assert "EXPECTED_OUTPUT" in smoke_script
++
++
++def test_publish_npm_smokes_staged_linux_package_before_publish() -> None:
++    workflow = (ROOT / ".github" / "workflows" / "publish-npm.yml").read_text(
++        encoding="utf-8"
++    )
++    smoke_script = (ROOT / "scripts" / "smoke_staged_npm_linux_package.sh").read_text(
++        encoding="utf-8"
++    )
++    smoke_index = workflow.index("Smoke staged Linux npm package")
++    publish_index = workflow.index("Publish platform npm packages")
++
++    assert smoke_index < publish_index
++    assert "bash scripts/smoke_staged_npm_linux_package.sh" in workflow
++    assert "node:24-bookworm" in smoke_script
++    assert "npm install -g --offline" in smoke_script
++    assert "aiwiki-toolkit --version" in smoke_script
++    assert "ai-wiki-toolkit-linux-x64" in smoke_script
+diff --git a/ai-wiki/_toolkit/metrics/document-stats.json b/ai-wiki/_toolkit/metrics/document-stats.json
+new file mode 100644
+index 0000000..79c5549
+--- /dev/null
++++ b/ai-wiki/_toolkit/metrics/document-stats.json
+@@ -0,0 +1,110 @@
++{
++  "documents": {
++    "constraints": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:49+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "conventions/distribution-target-matrix-must-match-published-assets": {
++      "effective_reuse_count": 1,
++      "last_effective_at": "2026-04-25T17:12:49+10:00",
++      "last_observed_at": "2026-04-25T17:12:49+10:00",
++      "lookup_reuse_count": 1,
++      "preloaded_reuse_count": 0,
++      "total_events": 1
++    },
++    "conventions/index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:49+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "decisions": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:49+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "features/index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:50+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:49+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "people/bochengyin/drafts/linux-release-binaries-need-runtime-checks-against-an-older-glibc-baseline": {
++      "effective_reuse_count": 1,
++      "last_effective_at": "2026-04-25T17:12:50+10:00",
++      "last_observed_at": "2026-04-25T17:12:50+10:00",
++      "lookup_reuse_count": 1,
++      "preloaded_reuse_count": 0,
++      "total_events": 1
++    },
++    "people/bochengyin/index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:50+10:00",
++      "lookup_reuse_count": 1,
++      "preloaded_reuse_count": 0,
++      "total_events": 1
++    },
++    "problems/index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:49+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "problems/linux-musl-pyinstaller-needs-binutils-objdump": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:50+10:00",
++      "lookup_reuse_count": 1,
++      "preloaded_reuse_count": 0,
++      "total_events": 1
++    },
++    "problems/windows-arm-smoke-version-checks-need-full-cli-output": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:50+10:00",
++      "lookup_reuse_count": 1,
++      "preloaded_reuse_count": 0,
++      "total_events": 1
++    },
++    "review-patterns/index": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:49+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    },
++    "workflows": {
++      "effective_reuse_count": 0,
++      "last_effective_at": null,
++      "last_observed_at": "2026-04-25T17:12:50+10:00",
++      "lookup_reuse_count": 0,
++      "preloaded_reuse_count": 1,
++      "total_events": 1
++    }
++  },
++  "schema_version": "reuse-v1",
++  "skipped_event_lines": 0
++}
+diff --git a/ai-wiki/_toolkit/metrics/task-stats.json b/ai-wiki/_toolkit/metrics/task-stats.json
+new file mode 100644
+index 0000000..1b6f777
+--- /dev/null
++++ b/ai-wiki/_toolkit/metrics/task-stats.json
+@@ -0,0 +1,26 @@
++{
++  "schema_version": "reuse-v1",
++  "skipped_check_lines": 0,
++  "skipped_event_lines": 0,
++  "summary": {
++    "checked_tasks": 1,
++    "tasks_with_events_but_no_check": 0,
++    "tasks_with_wiki_use": 1,
++    "tasks_without_wiki_use": 0
++  },
++  "tasks": {
++    "20260425-linux-npm-runtime-compat-smoke": {
++      "check_count": 1,
++      "effective_reuse_count": 2,
++      "estimated_seconds_saved": 0,
++      "estimated_token_savings": 0,
++      "last_check_outcome": "wiki_used",
++      "last_checked_at": "2026-04-25T17:12:50+10:00",
++      "lookup_reuse_count": 5,
++      "preloaded_reuse_count": 8,
++      "reuse_checked": true,
++      "reused_docs": 13,
++      "total_events": 13
++    }
++  }
++}
+diff --git a/ai-wiki/metrics/reuse-events/eval-user.jsonl b/ai-wiki/metrics/reuse-events/eval-user.jsonl
+new file mode 100644
+index 0000000..2f89706
+--- /dev/null
++++ b/ai-wiki/metrics/reuse-events/eval-user.jsonl
+@@ -0,0 +1,13 @@
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "index", "doc_kind": "repo_index", "event_id": "evt_3380a6e1c427", "evidence_mode": "explicit", "model": "unknown", "notes": "Mapped the repo-owned AI wiki areas to inspect before changing release workflow.", "observed_at": "2026-04-25T17:12:49+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["routed_search"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "constraints", "doc_kind": "constraints", "event_id": "evt_073874cb1988", "evidence_mode": "explicit", "model": "unknown", "notes": "Distribution and release-facing test constraints shaped the release-gate change.", "observed_at": "2026-04-25T17:12:49+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["reused_constraint"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "conventions/index", "doc_kind": "convention_index", "event_id": "evt_2da4254fe52b", "evidence_mode": "explicit", "model": "unknown", "notes": "Pointed to the distribution target matrix convention.", "observed_at": "2026-04-25T17:12:49+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["routed_search"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "conventions/distribution-target-matrix-must-match-published-assets", "doc_kind": "convention", "event_id": "evt_ed879a3e4594", "evidence_mode": "explicit", "model": "unknown", "notes": "Kept workflow, npm staging, docs, and smoke checks aligned for the public linux-x64 target.", "observed_at": "2026-04-25T17:12:49+10:00", "retrieval_mode": "lookup", "reuse_effects": ["reused_convention"], "reuse_outcome": "resolved", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "decisions", "doc_kind": "decisions", "event_id": "evt_b277dff18b1d", "evidence_mode": "explicit", "model": "unknown", "notes": "Checked for durable decisions; no release-runtime decision changed the implementation.", "observed_at": "2026-04-25T17:12:49+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["checked_for_conflict"], "reuse_outcome": "not_helpful", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "review-patterns/index", "doc_kind": "review_pattern_index", "event_id": "evt_9b928732d7c1", "evidence_mode": "explicit", "model": "unknown", "notes": "Checked for review patterns; none directly applied.", "observed_at": "2026-04-25T17:12:49+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["checked_for_conflict"], "reuse_outcome": "not_helpful", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "problems/index", "doc_kind": "problem_index", "event_id": "evt_1aee015cf2f0", "evidence_mode": "explicit", "model": "unknown", "notes": "Pointed to existing release-platform problem notes.", "observed_at": "2026-04-25T17:12:49+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["routed_search"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "problems/linux-musl-pyinstaller-needs-binutils-objdump", "doc_kind": "problem", "event_id": "evt_276ed7a5755b", "evidence_mode": "explicit", "model": "unknown", "notes": "Kept PyInstaller container build assumptions in view while adding the Linux build script.", "observed_at": "2026-04-25T17:12:50+10:00", "retrieval_mode": "lookup", "reuse_effects": ["avoided_retry"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "problems/windows-arm-smoke-version-checks-need-full-cli-output", "doc_kind": "problem", "event_id": "evt_6e3a9726ef66", "evidence_mode": "explicit", "model": "unknown", "notes": "Checked nearby release smoke issue; it did not affect Linux glibc handling.", "observed_at": "2026-04-25T17:12:50+10:00", "retrieval_mode": "lookup", "reuse_effects": ["checked_for_conflict"], "reuse_outcome": "not_helpful", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "features/index", "doc_kind": "feature_index", "event_id": "evt_4dadcf5e269b", "evidence_mode": "explicit", "model": "unknown", "notes": "Checked for feature-specific notes; none existed for this release change.", "observed_at": "2026-04-25T17:12:50+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["checked_for_conflict"], "reuse_outcome": "not_helpful", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "workflows", "doc_kind": "workflows", "event_id": "evt_255523572ecd", "evidence_mode": "explicit", "model": "unknown", "notes": "Followed repo branch, release, and verification workflow guidance.", "observed_at": "2026-04-25T17:12:50+10:00", "retrieval_mode": "preloaded", "reuse_effects": ["reused_workflow"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "people/bochengyin/index", "doc_kind": "person_index", "event_id": "evt_276ae2aa96dd", "evidence_mode": "explicit", "model": "unknown", "notes": "Pointed to local drafts relevant to release workflow changes.", "observed_at": "2026-04-25T17:12:50+10:00", "retrieval_mode": "lookup", "reuse_effects": ["routed_search"], "reuse_outcome": "partial", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
++{"agent_name": "codex", "author_handle": "eval-user", "doc_id": "people/bochengyin/drafts/linux-release-binaries-need-runtime-checks-against-an-older-glibc-baseline", "doc_kind": "draft", "event_id": "evt_9123d39ba050", "evidence_mode": "explicit", "model": "unknown", "notes": "Provided the exact older-glibc build baseline and bookworm/trixie runtime smoke approach.", "observed_at": "2026-04-25T17:12:50+10:00", "retrieval_mode": "lookup", "reuse_effects": ["changed_plan"], "reuse_outcome": "resolved", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
+diff --git a/ai-wiki/metrics/task-checks/eval-user.jsonl b/ai-wiki/metrics/task-checks/eval-user.jsonl
+new file mode 100644
+index 0000000..44fded2
+--- /dev/null
++++ b/ai-wiki/metrics/task-checks/eval-user.jsonl
+@@ -0,0 +1 @@
++{"agent_name": "codex", "author_handle": "eval-user", "check_id": "chk_33ae9ffc6006", "check_outcome": "wiki_used", "checked_at": "2026-04-25T17:12:50+10:00", "model": "unknown", "notes": "Used existing AI wiki release/distribution memory to add Linux runtime compatibility gates before publishing.", "schema_version": "reuse-v1", "task_id": "20260425-linux-npm-runtime-compat-smoke"}
+diff --git a/scripts/build_linux_release_in_container.sh b/scripts/build_linux_release_in_container.sh
+new file mode 100644
+index 0000000..e154d2f
+--- /dev/null
++++ b/scripts/build_linux_release_in_container.sh
+@@ -0,0 +1,32 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++version="${1:?release version is required, for example v0.1.7}"
++
++docker run --rm --platform linux/amd64 \
++  --user "$(id -u):$(id -g)" \
++  -e HOME=/tmp/aiwiki-toolkit-home \
++  -e RELEASE_VERSION="$version" \
++  -v "$PWD:/workspace" \
++  -w /workspace \
++  python:3.11-bookworm \
++  bash -euxo pipefail -c '
++    python -m venv /tmp/aiwiki-release-venv
++    . /tmp/aiwiki-release-venv/bin/activate
++    python -m pip install --upgrade pip
++    python -m pip install ".[dev,release]"
++    python -m pytest
++    python -m PyInstaller \
++      --clean \
++      --noconfirm \
++      --onefile \
++      --name aiwiki-toolkit \
++      --paths src \
++      --specpath build/pyinstaller \
++      src/ai_wiki_toolkit/cli.py
++    python scripts/build_release_archive.py \
++      --binary dist/aiwiki-toolkit \
++      --version "$RELEASE_VERSION" \
++      --target linux-x64 \
++      --output-dir release-assets
++  '
+diff --git a/scripts/smoke_linux_release_runtime.sh b/scripts/smoke_linux_release_runtime.sh
+new file mode 100644
+index 0000000..aa11b22
+--- /dev/null
++++ b/scripts/smoke_linux_release_runtime.sh
+@@ -0,0 +1,36 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++version="${1:?release version is required, for example v0.1.7}"
++asset_dir="${2:?asset directory is required}"
++runtime_image="${3:?runtime image is required, for example node:24-bookworm}"
++
++case "$version" in
++  v*)
++    release_tag="$version"
++    package_version="${version#v}"
++    ;;
++  *)
++    release_tag="v$version"
++    package_version="$version"
++    ;;
++esac
++
++asset_dir="$(cd "$asset_dir" && pwd)"
++archive_name="ai-wiki-toolkit-${release_tag}-linux-x64.tar.gz"
++expected_output="ai-wiki-toolkit ${package_version}"
++
++docker run --rm --platform linux/amd64 \
++  -e ARCHIVE_NAME="$archive_name" \
++  -e EXPECTED_OUTPUT="$expected_output" \
++  -v "$asset_dir:/release-assets:ro" \
++  "$runtime_image" \
++  bash -euo pipefail -c '
++    mkdir -p /tmp/aiwiki-toolkit-smoke
++    tar -xzf "/release-assets/${ARCHIVE_NAME}" -C /tmp/aiwiki-toolkit-smoke
++    actual="$(/tmp/aiwiki-toolkit-smoke/aiwiki-toolkit --version)"
++    if [ "$actual" != "$EXPECTED_OUTPUT" ]; then
++      printf "Expected %s, got %s\n" "$EXPECTED_OUTPUT" "$actual" >&2
++      exit 1
++    fi
++  '
+diff --git a/scripts/smoke_staged_npm_linux_package.sh b/scripts/smoke_staged_npm_linux_package.sh
+new file mode 100644
+index 0000000..c109ffb
+--- /dev/null
++++ b/scripts/smoke_staged_npm_linux_package.sh
+@@ -0,0 +1,33 @@
++#!/usr/bin/env bash
++set -euo pipefail
++
++version="${1:?package version is required, for example 0.1.7}"
++runtime_image="${2:-node:24-bookworm}"
++package_version="${version#v}"
++smoke_dir="build/npm-smoke-tarballs"
++
++rm -rf "$smoke_dir"
++mkdir -p "$smoke_dir"
++
++npm pack ./build/npm-platform-packages/ai-wiki-toolkit-linux-x64 \
++  --pack-destination "$smoke_dir"
++npm pack --ignore-scripts --pack-destination "$smoke_dir"
++
++smoke_dir="$(cd "$smoke_dir" && pwd)"
++expected_output="ai-wiki-toolkit ${package_version}"
++
++docker run --rm --platform linux/amd64 \
++  -e EXPECTED_OUTPUT="$expected_output" \
++  -e PACKAGE_VERSION="$package_version" \
++  -v "$smoke_dir:/npm-smoke:ro" \
++  "$runtime_image" \
++  bash -euo pipefail -c '
++    npm install -g --offline \
++      "/npm-smoke/ai-wiki-toolkit-linux-x64-${PACKAGE_VERSION}.tgz" \
++      "/npm-smoke/ai-wiki-toolkit-${PACKAGE_VERSION}.tgz"
++    actual="$(aiwiki-toolkit --version)"
++    if [ "$actual" != "$EXPECTED_OUTPUT" ]; then
++      printf "Expected %s, got %s\n" "$EXPECTED_OUTPUT" "$actual" >&2
++      exit 1
++    fi
++  '

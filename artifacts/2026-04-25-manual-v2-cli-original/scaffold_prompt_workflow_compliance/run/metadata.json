@@ -1,0 +1,82 @@
+{
+  "schema_version": 2,
+  "experiment": "scaffold_prompt_workflow_compliance",
+  "workspace_root": "<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315",
+  "variants": [
+    "s01",
+    "s02",
+    "s03",
+    "s04",
+    "s05",
+    "s06"
+  ],
+  "prompt_levels": [
+    "original"
+  ],
+  "prompt_hashes": {
+    "original": "8854eff8e68ee0334e9a7284d5261076ee956a3bcb4e9713d22d8c3180406123"
+  },
+  "created_at": "2026-04-25T16:18:37",
+  "notes": "Formal CLI-first original prompt run across six neutral slots.",
+  "assignment": {
+    "schema_version": 2,
+    "experiment": "scaffold_prompt_workflow_compliance",
+    "baseline_ref": "b1366fe^",
+    "workspace_layout": "neutral",
+    "primary_comparison": [
+      "no_aiwiki_workflow",
+      "aiwiki_ambient_memory_workflow"
+    ],
+    "diagnostic_variants": [
+      "aiwiki_scaffold_no_target_memory",
+      "aiwiki_linked_raw_only",
+      "aiwiki_linked_consolidated_only",
+      "aiwiki_scaffold_no_adjacent_memory"
+    ],
+    "slots": [
+      {
+        "slot": "s01",
+        "variant": "no_aiwiki_workflow",
+        "workspace": "<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/slots/s01"
+      },
+      {
+        "slot": "s02",
+        "variant": "aiwiki_scaffold_no_target_memory",
+        "workspace": "<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/slots/s02"
+      },
+      {
+        "slot": "s03",
+        "variant": "aiwiki_linked_raw_only",
+        "workspace": "<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/slots/s03"
+      },
+      {
+        "slot": "s04",
+        "variant": "aiwiki_linked_consolidated_only",
+        "workspace": "<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/slots/s04"
+      },
+      {
+        "slot": "s05",
+        "variant": "aiwiki_ambient_memory_workflow",
+        "workspace": "<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/slots/s05"
+      },
+      {
+        "slot": "s06",
+        "variant": "aiwiki_scaffold_no_adjacent_memory",
+        "workspace": "<eval-root>/scaffold_prompt_workflow_compliance/workspaces/20260425-160315/slots/s06"
+      }
+    ]
+  },
+  "primary_comparison": [
+    "no_aiwiki_workflow",
+    "aiwiki_ambient_memory_workflow"
+  ],
+  "diagnostic_variants": [
+    "aiwiki_scaffold_no_target_memory",
+    "aiwiki_linked_raw_only",
+    "aiwiki_linked_consolidated_only",
+    "aiwiki_scaffold_no_adjacent_memory"
+  ],
+  "model_family": "gpt-5.5",
+  "reasoning_effort": "xhigh",
+  "execution_surface": "codex-cli"
+}

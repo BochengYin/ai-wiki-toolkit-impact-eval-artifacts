@@ -1,0 +1,24 @@
+ .github/workflows/publish-npm.yml           |  1 +
+ .github/workflows/release-binaries.yml      | 69 +++++++++++++++++++++++++---
+ CHANGELOG.md                                |  9 ++++
+ README.md                                   |  2 +
+ docs/homebrew-tap.md                        |  1 +
+ docs/npm-publish.md                         | 12 ++++-
+ docs/npm-wrapper.md                         | 11 +++--
+ docs/releasing.md                           | 41 ++++++++++++++---
+ npm/platform-targets.json                   | 31 +++++++++++++
+ npm/shared.js                               | 28 +++++++++++-
+ package.json                                |  9 +++-
+ scripts/build_linux_release_in_container.py | 21 ++++++++-
+ scripts/check_linux_runtime_matrix.py       | 11 +++++
+ src/ai_wiki_toolkit/homebrew_formula.py     |  7 ++-
+ src/ai_wiki_toolkit/npm_distribution.py     | 28 +++++++++++-
+ src/ai_wiki_toolkit/release_build.py        | 12 +++--
+ src/ai_wiki_toolkit/release_runtime.py      | 13 ++++--
+ tests/test_distribution_metadata.py         | 19 ++++++--
+ tests/test_homebrew_formula.py              | 12 ++++-
+ tests/test_npm_wrapper.py                   | 70 +++++++++++++++++++++++++++--
+ tests/test_release_artifacts.py             |  2 +
+ tests/test_release_build.py                 | 22 +++++++++
+ tests/test_release_runtime.py               | 10 +++++
+ 23 files changed, 402 insertions(+), 39 deletions(-)

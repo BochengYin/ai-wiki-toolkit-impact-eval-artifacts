@@ -1,0 +1,36 @@
+diff --git a/.github/workflows/release-smoke-windows-arm.yml b/.github/workflows/release-smoke-windows-arm.yml
+index d237b21..0adaec5 100644
+--- a/.github/workflows/release-smoke-windows-arm.yml
++++ b/.github/workflows/release-smoke-windows-arm.yml
+@@ -82,8 +82,9 @@ jobs:
+         shell: pwsh
+         run: |
+           $version = (& "release-assets/windows-arm64/aiwiki-toolkit.exe" --version).Trim()
+-          if ($version -ne "${{ steps.release.outputs.package_version }}") {
+-            throw "Expected version ${{ steps.release.outputs.package_version }} but binary returned $version."
++          $expected = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"
++          if ($version -ne $expected) {
++            throw "Expected version output '$expected' but binary returned '$version'."
+           }
+ 
+   npm-smoke:
+@@ -149,6 +150,7 @@ jobs:
+         shell: pwsh
+         run: |
+           $version = (& aiwiki-toolkit --version).Trim()
+-          if ($version -ne "${{ steps.release.outputs.package_version }}") {
+-            throw "Expected version ${{ steps.release.outputs.package_version }} but npm-installed binary returned $version."
++          $expected = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"
++          if ($version -ne $expected) {
++            throw "Expected version output '$expected' but npm-installed binary returned '$version'."
+           }
+diff --git a/tests/test_release_smoke_workflow.py b/tests/test_release_smoke_workflow.py
+index 79b9a06..c7858c0 100644
+--- a/tests/test_release_smoke_workflow.py
++++ b/tests/test_release_smoke_workflow.py
+@@ -28,3 +28,5 @@ def test_release_smoke_workflow_checks_release_archive_and_npm_install() -> None
+     assert '& "release-assets/windows-arm64/aiwiki-toolkit.exe" --version' in workflow
+     assert 'npm install -g "ai-wiki-toolkit@$version"' in workflow
+     assert '& aiwiki-toolkit --version' in workflow
++    assert '$expected = "ai-wiki-toolkit ${{ steps.release.outputs.package_version }}"' in workflow
++    assert '$version -ne "${{ steps.release.outputs.package_version }}"' not in workflow

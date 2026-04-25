@@ -1,0 +1,13 @@
+ .github/workflows/publish-npm.yml      |  6 ++++++
+ .github/workflows/release-binaries.yml | 11 +++++++++++
+ docs/npm-publish.md                    | 27 +++++++++++++++++++++------
+ docs/npm-wrapper.md                    |  1 +
+ docs/releasing.md                      | 24 +++++++++++++++++-------
+ tests/test_distribution_metadata.py    | 25 +++++++++++++++++++++++++
+ 6 files changed, 81 insertions(+), 13 deletions(-)
+ /dev/null => scripts/smoke_npm_linux_install.py | 166 ++++++++++++++++++++++++
+ 1 file changed, 166 insertions(+)
+ /dev/null => src/ai_wiki_toolkit/npm_smoke.py | 37 +++++++++++++++++++++++++++
+ 1 file changed, 37 insertions(+)
+ /dev/null => tests/test_npm_smoke.py | 45 ++++++++++++++++++++++++++++++++++++
+ 1 file changed, 45 insertions(+)

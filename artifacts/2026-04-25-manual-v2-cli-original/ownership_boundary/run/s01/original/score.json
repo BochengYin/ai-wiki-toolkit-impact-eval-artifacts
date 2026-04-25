@@ -1,0 +1,16 @@
+{
+  "schema_version": 2,
+  "slot": "s01",
+  "prompt_level": "original",
+  "label": "fail",
+  "rubric_refs": [
+    "ownership_boundary_runbook:Fail"
+  ],
+  "evidence": [
+    "s01/original/first_pass/workspace_diff.patch",
+    "s01/original/first_pass/final_message.md",
+    "codex_sessions/s01/visible_transcript.md"
+  ],
+  "notes": "Fails ownership boundary: implementation added src/ai_wiki_toolkit/contributor_workflow.py and package CLI wiring in src/ai_wiki_toolkit/cli.py for a contributor-only workflow, even though tests passed.",
+  "scored_at": "2026-04-25T12:40:08"
+}
